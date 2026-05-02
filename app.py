@@ -1,31 +1,37 @@
 """
-Smart Fracing System - Flask API
-Run: python app.py
-Open browser at: http://localhost:5000
+Smart Fracing System - Flask API (Production Ready)
 """
 
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, render_template
 import joblib
 import numpy as np
 import os
 import warnings
+
+# تجاهل التحذيرات
 warnings.filterwarnings('ignore')
 
 app = Flask(__name__)
 
+# الحصول على المسار الأساسي للمشروع
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# ── Serve the HTML frontend (no CORS needed!) ─────────────────────────────────
+# ── Serve the HTML frontend ──────────────────────────────────────────────────
 @app.route('/')
 def index():
-    return send_file(os.path.join(BASE_DIR, 'smart_fracing_system.html'))
+    # تم تغيير send_file إلى render_template لأنها الطريقة الأفضل في Flask
+    # تأكد أن ملف الـ HTML موجود داخل مجلد اسمه templates
+    return render_template('smart_fracing_system.html')
 
 # ── Load models once at startup ───────────────────────────────────────────────
+# استخدام os.path.join لضمان عمل المسارات على السيرفر بشكل صحيح
 print("Loading ANN model...")
-model = joblib.load(os.path.join(BASE_DIR, 'ANN_model.pkl'))
+model_path = os.path.join(BASE_DIR, 'ANN_model.pkl')
+model = joblib.load(model_path)
 
 print("Loading Quantile Transformer...")
-qt = joblib.load(os.path.join(BASE_DIR, 'quantile_transformer.pkl'))
+qt_path = os.path.join(BASE_DIR, 'quantile_transformer.pkl')
+qt = joblib.load(qt_path)
 
 print("Models loaded successfully!")
 
@@ -35,10 +41,12 @@ def predict_eur(params):
     porosity = float(params['Porosity'])
     pct_lg   = float(params['Percentage of LG'])
 
+    # التحويل باستخدام Quantile Transformer
     qt_feats    = qt.transform([[porosity, pct_lg]])
     qt_porosity = qt_feats[0, 0]
     qt_pct_lg   = qt_feats[0, 1]
 
+    # تجهيز المصفوفة للتنبؤ
     X = np.array([[
         float(params['Stage Spacing']),
         float(params['Well Spacing']),
@@ -70,25 +78,13 @@ def predict():
         required = ['Stage Spacing','Well Spacing','Thickness','Injection Rate',
                     'Water Saturation','Pressure Gradient','Proppant Loading',
                     'Lateral Length','ISIP','Porosity','Percentage of LG']
+        
         missing = [k for k in required if k not in data]
         if missing:
             return jsonify({'error': f'Missing: {missing}'}), 400
+            
         eur = predict_eur(data)
         return jsonify({'predicted_eur': round(eur, 4)})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/predict_batch', methods=['POST'])
-def predict_batch():
-    try:
-        data = request.get_json(force=True)
-        rows = data.get('rows', [])
-        results = []
-        for row in rows:
-            eur = predict_eur(row)
-            results.append({**row, 'Predicted_EUR': round(eur, 4)})
-        return jsonify({'results': results})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -96,11 +92,14 @@ def predict_batch():
 @app.route('/optimize', methods=['POST'])
 def optimize():
     try:
+        # استيراد scipy هنا لضمان عملها داخل السيرفر
         from scipy.optimize import minimize, differential_evolution
+        
         data    = request.get_json(force=True)
         fixed   = data.get('fixed', {})
         bounds  = data.get('bounds', {})
         method  = data.get('method', 'SLSQP')
+        
         opt_keys = list(bounds.keys())
         lo = [bounds[k][0] for k in opt_keys]
         hi = [bounds[k][1] for k in opt_keys]
@@ -120,15 +119,20 @@ def optimize():
 
         optimized = {k: round(float(res.x[i]), 4) for i, k in enumerate(opt_keys)}
         best_eur  = predict_eur({**fixed, **optimized})
-        return jsonify({'success': bool(res.success), 'method': method,
-                        'best_eur': round(best_eur, 4), 'optimized': optimized})
+        
+        return jsonify({
+            'success': bool(res.success), 
+            'method': method,
+            'best_eur': round(best_eur, 4), 
+            'optimized': optimized
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
-# ── Run ───────────────────────────────────────────────────────────────────────
-import os
+# ── Run (Production Config) ──────────────────────────────────────────────────
 if __name__ == '__main__':
-    print("\n>>> Open browser at: http://localhost:5000 <<<\n")
+    # قراءة البورت من السيرفر (ضروري جداً لـ Render)
     port = int(os.environ.get("PORT", 5000))
+    # تشغيل التطبيق على 0.0.0.0 ليكون متاحاً خارجياً
     app.run(host='0.0.0.0', port=port, debug=False)
