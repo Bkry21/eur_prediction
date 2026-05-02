@@ -3,10 +3,13 @@ Smart Fracing System - Flask API (Production Ready)
 """
 
 from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
 import joblib
 import numpy as np
 import os
 import warnings
+app = Flask(__name__)
+CORS(app)
 
 # تجاهل التحذيرات
 warnings.filterwarnings('ignore')
