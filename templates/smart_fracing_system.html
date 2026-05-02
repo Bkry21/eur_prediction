@@ -676,11 +676,17 @@ function onSensFeatureChange() {
 
 // ─── Flask API helper ─────────────────────────────────────────────────────────
 async function apiPost(endpoint, body) {
-  const r = await fetch(endpoint, {
+  const url = window.location.origin + endpoint; 
+  
+  const r = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json' 
+    },
     body: JSON.stringify(body)
   });
+  
   const d = await r.json();
   if (!r.ok || d.error) throw new Error(d.error || `Server error ${r.status}`);
   return d;
