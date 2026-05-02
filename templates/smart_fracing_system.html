@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Smart Fracing System</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fflate/0.8.2/fflate.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #0b0e14;
+  --surface: #111620;
+  --surface2:#181e2c;
+  --border:  #1f2a3c;
+  --accent:  #00c8a0;
+  --accent2: #0085ff;
+  --warn:    #f5a623;
+  --out-bg:  #0d2b1f;
+  --txt:     #e2e8f0;
+  --txt2:    #8899aa;
+  --red:     #ff4d6d;
+}
+
+html, body {
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: var(--bg);
+  color: var(--txt);
+  font-family: 'IBM Plex Sans', sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0,200,160,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,200,160,.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.page {
+  position: relative; z-index: 1;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 16px 80px;
+}
+
+/* HEADER */
+header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 22px 0 18px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
+}
+.logo {
+  width: 42px; height: 42px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 10px;
+  display: grid; place-items: center;
+  font-size: 20px;
+}
+header h1 {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: clamp(1.15rem, 5vw, 1.9rem);
+  font-weight: 700; letter-spacing: .04em; line-height: 1.1;
+}
+header h1 span { color: var(--accent); }
+header p { font-size: clamp(.68rem, 2.8vw, .84rem); color: var(--txt2); margin-top: 3px; }
+
+/* TABS */
+.tabs-bar {
+  display: flex; gap: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 11px; padding: 4px;
+  margin-bottom: 16px;
+}
+.tab-btn {
+  flex: 1;
+  background: none; border: none; border-radius: 8px;
+  color: var(--txt2);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: clamp(.7rem, 2.8vw, .95rem);
+  font-weight: 600; letter-spacing: .03em;
+  cursor: pointer; transition: all .2s;
+  padding: 8px 4px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2px; min-height: 48px; line-height: 1.2;
+}
+.tab-btn .icon { font-size: clamp(.9rem, 3vw, 1.1rem); }
+.tab-btn.active {
+  background: linear-gradient(135deg,rgba(0,200,160,.18),rgba(0,133,255,.18));
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(0,200,160,.3);
+}
+
+/* SLIDER */
+.slider-wrap { width: 100%; overflow: hidden; }
+.slider-track {
+  display: flex;
+  width: 300%;
+  will-change: transform;
+  transition: transform .42s cubic-bezier(.77,0,.18,1);
+}
+.panel {
+  width: calc(100% / 3);
+  flex-shrink: 0;
+  min-width: 0;
+  padding-bottom: 4px;
+}
+
+/* CARD */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  padding: clamp(14px, 4vw, 26px);
+  margin-bottom: 14px;
+  width: 100%;
+  overflow: hidden;
+}
+.card-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: clamp(.95rem, 3.5vw, 1.12rem);
+  font-weight: 700; letter-spacing: .07em;
+  color: var(--accent); text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.card-desc {
+  font-size: clamp(.73rem, 2.5vw, .81rem);
+  color: var(--txt2); line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+/* SECTION LABEL */
+.sec-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: clamp(.62rem, 2vw, .7rem);
+  font-weight: 500; letter-spacing: .1em;
+  color: var(--txt2); text-transform: uppercase;
+  margin: 16px 0 10px;
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap;
+}
+.sec-label::after { content:''; flex:1; height:1px; background:var(--border); min-width:20px; }
+
+.badge {
+  display: inline-block; padding: 2px 6px; border-radius: 4px;
+  font-size: .6rem; font-family: 'IBM Plex Mono', monospace;
+  font-weight: 500; letter-spacing: .04em; vertical-align: middle;
+  white-space: nowrap; flex-shrink: 0;
+}
+.b-fixed { background:rgba(242,244,247,.08); color:#8899aa; border:1px solid #2a3548; }
+.b-opt   { background:rgba(0,133,255,.12); color:var(--accent2); border:1px solid rgba(0,133,255,.25); }
+.b-sens  { background:rgba(245,166,35,.12); color:var(--warn); border:1px solid rgba(245,166,35,.25); }
+
+/* FIELDS */
+.fields-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 10px;
+}
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label {
+  font-size: clamp(.66rem, 2.2vw, .74rem);
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--txt2); letter-spacing: .02em;
+}
+.field label small { color: var(--warn); margin-left: 4px; }
+.field input[type=number], .field select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--txt);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: clamp(.82rem, 2.8vw, .9rem);
+  padding: 11px 12px;
+  width: 100%;
+  -webkit-appearance: none; appearance: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.field input[type=number]:focus, .field select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,200,160,.13);
+}
+.field input.invalid {
+  border-color: var(--red) !important;
+  box-shadow: 0 0 0 3px rgba(255,77,109,.18) !important;
+  background: rgba(255,77,109,.06) !important;
+}
+.field .range-hint {
+  font-size: .62rem;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--red);
+  margin-top: 2px;
+  display: none;
+}
+.field .range-hint.show { display: block; }
+
+/* BUTTONS */
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  border: none; border-radius: 10px; cursor: pointer;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: clamp(.95rem, 3vw, 1.05rem);
+  font-weight: 700; letter-spacing: .07em;
+  padding: 14px 20px;
+  transition: opacity .15s;
+  width: 100%; margin-top: 16px;
+}
+.btn-green  { background: linear-gradient(135deg, var(--accent), #00a082); color:#000; box-shadow:0 4px 16px rgba(0,200,160,.25); }
+.btn-orange { background: linear-gradient(135deg, var(--warn), #d4860a); color:#000; box-shadow:0 4px 16px rgba(245,166,35,.2); }
+.btn-blue   { background: linear-gradient(135deg, var(--accent2), #005fcc); color:#fff; box-shadow:0 4px 16px rgba(0,133,255,.25); }
+.btn:active { opacity: .8; }
+.btn:disabled { opacity: .4; pointer-events: none; }
+
+/* RESULT BOX */
+.result-box {
+  background: var(--out-bg);
+  border: 1px solid rgba(0,200,160,.25);
+  border-radius: 12px; padding: 18px 16px;
+  margin-top: 12px; display: none;
+}
+.result-box.show { display: block; animation: fadeUp .3s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+.eur-block { text-align: center; padding: 14px 0; }
+.eur-block .lbl {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: clamp(.63rem, 2.2vw, .74rem); color: var(--txt2); letter-spacing: .1em;
+}
+.eur-block .val {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: clamp(2rem, 10vw, 3.4rem);
+  font-weight: 700; color: var(--accent); line-height: 1.1;
+  text-shadow: 0 0 40px rgba(0,200,160,.35);
+}
+.eur-block .unit { font-size: clamp(.85rem, 2.8vw, 1.1rem); color: var(--txt2); margin-left: 5px; }
+
+/* TABLES */
+.tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 12px; }
+table { border-collapse: collapse; min-width: 380px; width: 100%; }
+thead th {
+  background: rgba(255,255,255,.04);
+  padding: 8px 10px; text-align: left;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: clamp(.62rem, 2vw, .7rem); color: var(--txt2);
+  letter-spacing: .06em; text-transform: uppercase;
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+tbody td {
+  padding: 8px 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: clamp(.7rem, 2.2vw, .82rem);
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  white-space: nowrap;
+}
+.row-fixed td { background: rgba(242,244,247,.03); }
+.row-opt   td { background: rgba(0,133,255,.07); color:#7fb8ff; }
+.row-out   td { background: rgba(0,200,160,.09); color:var(--accent); font-weight:600; }
+.row-sens-max td { background: rgba(0,200,160,.14); color:var(--accent); font-weight:700; }
+
+/* SPINNER */
+.spin {
+  width:16px; height:16px; border-radius:50%;
+  border:2px solid rgba(0,0,0,.2); border-top-color:#000;
+  animation: rot .65s linear infinite; display:inline-block; flex-shrink:0;
+}
+.spin-white {
+  width:16px; height:16px; border-radius:50%;
+  border:2px solid rgba(255,255,255,.2); border-top-color:#fff;
+  animation: rot .65s linear infinite; display:inline-block; flex-shrink:0;
+}
+@keyframes rot { to { transform: rotate(360deg); } }
+
+/* ERROR */
+.err {
+  background:rgba(255,77,109,.07); border:1px solid rgba(255,77,109,.28);
+  border-radius:8px; padding:11px 13px; margin-top:10px;
+  color:var(--red); font-family:'IBM Plex Mono',monospace;
+  font-size:clamp(.72rem,2.2vw,.8rem); display:none;
+}
+.err.show { display:block; }
+
+/* FILE DROP */
+.file-drop {
+  border: 2px dashed var(--border); border-radius: 12px;
+  padding: 28px 14px; text-align: center; cursor: pointer;
+  position: relative; transition: all .2s;
+}
+.file-drop:hover, .file-drop.drag { border-color: var(--accent); background:rgba(0,200,160,.04); }
+.file-drop input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+.file-drop .ico { font-size:1.8rem; margin-bottom:7px; }
+.file-drop p { color:var(--txt2); font-size:clamp(.76rem,2.5vw,.86rem); }
+.file-name { color:var(--accent); margin-top:7px; font-family:'IBM Plex Mono',monospace; font-size:.78rem; min-height:18px; }
+
+/* TOGGLE */
+.toggle-row { display:flex; align-items:center; gap:12px; margin:12px 0; }
+.toggle-row label { font-size:clamp(.78rem,2.5vw,.86rem); color:var(--txt2); cursor:pointer; }
+.tog {
+  width:38px; height:21px; background:var(--border);
+  border-radius:11px; position:relative; cursor:pointer;
+  border:none; flex-shrink:0; transition:background .2s;
+}
+.tog.on { background:var(--accent); }
+.tog::after {
+  content:''; width:15px; height:15px; background:#fff;
+  border-radius:50%; position:absolute; top:3px; left:3px;
+  transition:transform .2s;
+}
+.tog.on::after { transform:translateX(17px); }
+
+/* SENS PANEL — inside prediction section */
+.sens-panel {
+  background: var(--surface2);
+  border: 1px solid rgba(245,166,35,.2);
+  border-radius: 11px;
+  padding: 14px;
+  margin-top: 14px;
+  display: none;
+}
+.sens-panel.show { display: block; animation: fadeUp .25s ease; }
+.sens-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: 9px;
+  margin-top: 10px;
+}
+
+/* SENS range warning */
+.sens-range-info {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .68rem;
+  color: var(--txt2);
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: rgba(0,200,160,.05);
+  border-radius: 6px;
+  border: 1px solid rgba(0,200,160,.15);
+  display: none;
+}
+.sens-range-info.show { display: block; }
+
+/* METHOD */
+.method-row { display:flex; gap:7px; margin-bottom:14px; }
+.m-btn {
+  flex:1; padding:9px 14px; border-radius:8px;
+  border:1px solid var(--border); background:var(--surface2);
+  color:var(--txt2); font-family:'IBM Plex Mono',monospace;
+  font-size:clamp(.75rem,2.2vw,.82rem);
+  cursor:pointer; transition:all .2s; text-align:center;
+}
+.m-btn.active { border-color:var(--accent2); color:var(--accent2); background:rgba(0,133,255,.1); }
+
+/* PROGRESS */
+.prog-wrap { background:var(--border); border-radius:4px; height:4px; margin-top:9px; overflow:hidden; display:none; }
+.prog-wrap.show { display:block; }
+.prog-bar { height:100%; background:var(--accent); border-radius:4px; width:0; transition:width .3s; }
+
+/* BOUNDS */
+.bounds-tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; margin-bottom:16px; }
+.bounds-tbl { border-collapse:collapse; min-width:280px; width:100%; }
+.bounds-tbl th { font-family:'IBM Plex Mono',monospace; font-size:.66rem; color:var(--txt2); text-transform:uppercase; letter-spacing:.05em; padding:6px 9px; border-bottom:1px solid var(--border); text-align:left; }
+.bounds-tbl td { font-family:'IBM Plex Mono',monospace; font-size:.76rem; padding:6px 9px; border-bottom:1px solid rgba(255,255,255,.04); }
+.bounds-tbl td:not(:first-child) { color:var(--txt2); }
+
+/* SENS summary bar */
+.sens-summary {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 12px; padding: 10px 12px;
+  background: rgba(0,200,160,.06); border-radius: 8px;
+  border: 1px solid rgba(0,200,160,.2);
+  font-family: 'IBM Plex Mono', monospace; font-size: .75rem; color: var(--txt2);
+}
+.sens-summary strong { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="logo">🛢️</div>
+    <div>
+      <h1>Smart <span>Fracing</span> System</h1>
+      <p>ANN-powered EUR prediction &amp; completion optimization</p>
+    </div>
+  </header>
+
+  <div class="tabs-bar">
+    <button class="tab-btn active" onclick="goTab(0)"><span class="icon">⬡</span>Single Well</button>
+    <button class="tab-btn"        onclick="goTab(1)"><span class="icon">⊞</span>Excel/Batch</button>
+    <button class="tab-btn"        onclick="goTab(2)"><span class="icon">⚙</span>Optimize</button>
+  </div>
+
+  <div class="slider-wrap">
+  <div class="slider-track" id="track">
+
+    <!-- PANEL 1: Single Well + Sensitivity -->
+    <div class="panel">
+      <div class="card">
+        <div class="card-title">Single Well Prediction</div>
+        <div class="card-desc">Enter well parameters in original engineering units. Transformations (log, quantile) are applied internally.</div>
+
+        <div class="sec-label">Geological Inputs <span class="badge b-fixed">FIXED</span></div>
+        <div class="fields-grid" id="fixedFields"></div>
+
+        <div class="sec-label">Completion Inputs <span class="badge b-opt">OPTIMIZABLE</span></div>
+        <div class="fields-grid" id="compFields"></div>
+
+        <button class="btn btn-green" id="predBtn" onclick="doPred()">▶ Predict EUR</button>
+        <div class="err" id="predErr"></div>
+      </div>
+
+      <div class="result-box" id="predResult">
+        <div class="eur-block">
+          <div class="lbl">ESTIMATED ULTIMATE RECOVERY</div>
+          <div class="val" id="eurVal">—<span class="unit">bcf</span></div>
+        </div>
+      </div>
+
+      <!-- SENSITIVITY ANALYSIS — moved here from panel 2 -->
+      <div class="card" style="border-color:rgba(245,166,35,.25)">
+        <div class="card-title" style="color:var(--warn)">Sensitivity Analysis</div>
+        <div class="card-desc">Sweep a single feature across a range while keeping all other inputs fixed at the values entered above. Min/Max are set from real dataset bounds.</div>
+
+        <div class="sec-label">Feature to Sweep <span class="badge b-sens">SENS</span></div>
+        <div class="field">
+          <label>Select Feature</label>
+          <select id="sensFeatureSingle" onchange="onSensFeatureChange()">
+            <option value="">— choose feature —</option>
+          </select>
+        </div>
+
+        <div class="sens-panel" id="sensPanelSingle">
+          <div class="sens-grid">
+            <div class="field">
+              <label>Range Start <small id="sensMinHint"></small></label>
+              <input type="number" id="sensStartSingle" placeholder="enter min value" step="any">
+            </div>
+            <div class="field">
+              <label>Range Stop <small id="sensMaxHint"></small></label>
+              <input type="number" id="sensStopSingle" placeholder="enter max value" step="any">
+            </div>
+            <div class="field">
+              <label>Number of Points</label>
+              <input type="number" id="sensNSingle" value="10" min="2" max="30">
+            </div>
+          </div>
+          <div class="sens-range-info show" id="sensRangeInfo">
+            Data bounds will be shown here after selecting a feature.
+          </div>
+        </div>
+
+        <button class="btn btn-blue" id="sensBtn" onclick="doSens()" style="margin-top:14px">📊 Run Sensitivity Analysis</button>
+        <div class="err" id="sensErr"></div>
+      </div>
+
+      <div class="result-box" id="sensResult">
+        <div class="card-title" style="margin-bottom:10px;color:var(--warn)">Sensitivity Results</div>
+        <div id="sensContent"></div>
+      </div>
+    </div>
+
+    <!-- PANEL 2: Batch Upload only -->
+    <div class="panel">
+      <div class="card">
+        <div class="card-title">Batch Prediction</div>
+        <div class="card-desc">Upload CSV or XLSX with well parameters for batch EUR prediction.<br><br><strong>Required columns:</strong> Stage Spacing, Well Spacing, Thickness, Injection Rate, Water Saturation, Pressure Gradient, Proppant Loading, Lateral Length, ISIP, Porosity, Percentage of LG</div>
+        <div class="file-drop" id="fileDrop">
+          <input type="file" id="batchFile" accept=".csv,.xlsx,.xls" onchange="onFile(this)">
+          <div class="ico">📂</div>
+          <p>Tap to select CSV / XLSX</p>
+          <div class="file-name" id="fileName"></div>
+        </div>
+        <button class="btn btn-green" id="batchBtn" onclick="doBatch()">▶ Run Batch Prediction</button>
+        <div class="prog-wrap" id="progWrap"><div class="prog-bar" id="progBar"></div></div>
+        <div class="err" id="batchErr"></div>
+      </div>
+      <div class="result-box" id="batchResult">
+        <div class="card-title" style="margin-bottom:10px">Batch Results</div>
+        <div id="batchContent"></div>
+      </div>
+    </div>
+
+    <!-- PANEL 3: Optimizer -->
+    <div class="panel">
+      <div class="card">
+        <div class="card-title">Completion Optimization</div>
+        <div class="card-desc">Finds optimal Stage Spacing, Lateral Length, Injection Rate, % LG, Proppant Loading that maximize EUR using the real ANN model. All fields must be filled.</div>
+        <div class="sec-label">Optimizer Method</div>
+        <div class="method-row">
+          <button class="m-btn active" id="mSLSQP" onclick="pickMethod('SLSQP')">SLSQP</button>
+          <button class="m-btn" id="mDE" onclick="pickMethod('DE')">Diff. Evolution</button>
+        </div>
+        <div class="sec-label">Fixed Geological Inputs <span class="badge b-fixed">FIXED</span></div>
+        <div class="fields-grid" id="optFields"></div>
+        <div class="sec-label">Optimized Parameter Bounds <span class="badge b-opt">FROM DATA</span></div>
+        <div class="bounds-tbl-wrap">
+          <table class="bounds-tbl">
+            <thead><tr><th>Feature</th><th>Min</th><th>Max</th><th>Unit</th></tr></thead>
+            <tbody id="boundsBody"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-orange" id="optBtn" onclick="doOpt()">⚙ Run Optimization</button>
+        <div class="err" id="optErr"></div>
+      </div>
+      <div class="result-box" id="optResult">
+        <div class="card-title" id="optResultTitle" style="margin-bottom:10px">Optimization Results</div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>Parameter</th><th>Value</th><th>Unit</th><th>Role</th></tr></thead>
+          <tbody id="optBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  </div>
+
+</div>
+<script>
+// ─── Data from real CSV dataset ───────────────────────────────────────────────
+const UNITS = {
+  'Stage Spacing':'ft','Well Spacing':'ft','Thickness':'ft',
+  'Injection Rate':'bbl/min','Water Saturation':'%','Pressure Gradient':'psi/ft',
+  'Proppant Loading':'lb/ft','Lateral Length':'ft','ISIP':'psi',
+  'Porosity':'%','Percentage of LG':'%','Predicted EUR':'bcf'
+};
+const DEC = {
+  'Stage Spacing':0,'Well Spacing':0,'Thickness':0,'Injection Rate':0,
+  'Water Saturation':1,'Pressure Gradient':3,'Proppant Loading':0,
+  'Lateral Length':0,'ISIP':0,'Porosity':1,'Percentage of LG':1,'Predicted EUR':3
+};
+// Real bounds from dataset
+const BOUNDS = {
+  'Stage Spacing':    [140,   330],
+  'Well Spacing':     [650,  1350],
+  'Thickness':        [120,   185],
+  'Injection Rate':   [55,    80],
+  'Water Saturation': [15.0,  25.0],
+  'Pressure Gradient':[0.75,  0.95],
+  'Proppant Loading': [1100, 3200],
+  'Lateral Length':   [4500,11500],
+  'ISIP':             [5000, 8200],
+  'Porosity':         [5.5,   8.5],
+  'Percentage of LG': [15.0,  95.0]
+};
+const MEDIANS = {
+  'Stage Spacing':141,'Well Spacing':800,'Thickness':165,'Injection Rate':61,
+  'Water Saturation':17.7,'Pressure Gradient':0.95,'Proppant Loading':2642,
+  'Lateral Length':8051,'ISIP':7643,'Porosity':7.5,'Percentage of LG':69.9
+};
+const FIXED_F = ['Well Spacing','Thickness','Porosity','ISIP','Water Saturation','Pressure Gradient'];
+const OPT_F   = ['Stage Spacing','Lateral Length','Injection Rate','Percentage of LG','Proppant Loading'];
+const ALL_F   = ['Stage Spacing','Well Spacing','Thickness','Injection Rate','Water Saturation','Pressure Gradient','Proppant Loading','Lateral Length','ISIP','Porosity','Percentage of LG'];
+const lu = f => UNITS[f] ? `${f} (${UNITS[f]})` : f;
+
+// ─── Model preprocessing logic (mirrors Python backend) ──────────────────────
+// These are approximated via Claude API calls — see predict() function
+// The actual model call happens server-side via the API
+
+// ─── SLIDER ───────────────────────────────────────────────────────────────────
+let curTab = 0;
+function goTab(i) {
+  curTab = i;
+  document.getElementById('track').style.transform = `translateX(calc(${-i} * 100% / 3))`;
+  document.querySelectorAll('.tab-btn').forEach((b,j) => b.classList.toggle('active', j===i));
+}
+
+// ─── FIELD BUILDER ────────────────────────────────────────────────────────────
+function mkField(f, pid) {
+  const p = document.getElementById(pid);
+  const b = BOUNDS[f];
+  const id  = `inp_${pid}_${f.replace(/\s+/g,'_')}`;
+  const hid = `hint_${pid}_${f.replace(/\s+/g,'_')}`;
+  const d = document.createElement('div'); d.className = 'field';
+  d.innerHTML = `
+    <label>${lu(f)} <small style="color:var(--txt2)">[${b[0]}–${b[1]}]</small></label>
+    <input type="number" id="${id}" value="" step="any" placeholder="median: ${MEDIANS[f]}">
+    <div class="range-hint" id="${hid}">⚠ Valid range: ${b[0]} – ${b[1]}</div>`;
+  p.appendChild(d);
+  const inp = d.querySelector('input');
+  inp.addEventListener('input', () => validateField(inp, f, hid));
+}
+
+function validateField(inp, f, hid) {
+  const b = BOUNDS[f];
+  const v = parseFloat(inp.value);
+  const hint = document.getElementById(hid);
+  if (inp.value.trim() === '') { inp.classList.remove('invalid'); hint.classList.remove('show'); return; }
+  if (isNaN(v) || v < b[0] || v > b[1]) {
+    inp.classList.add('invalid'); hint.classList.add('show');
+  } else {
+    inp.classList.remove('invalid'); hint.classList.remove('show');
+  }
+}
+
+function getVal(pid, f) {
+  const inp = document.getElementById(`inp_${pid}_${f.replace(/\s+/g,'_')}`);
+  if (!inp) return null;
+  const v = parseFloat(inp.value);
+  return inp.value.trim() === '' ? null : (isNaN(v) ? null : v);
+}
+
+function allFilled(pid, fields) {
+  return fields.every(f => {
+    const inp = document.getElementById(`inp_${pid}_${f.replace(/\s+/g,'_')}`);
+    if (!inp) return true;
+    return inp.value.trim() !== '';
+  });
+}
+
+function allValid(pid, fields) {
+  return fields.every(f => {
+    const inp = document.getElementById(`inp_${pid}_${f.replace(/\s+/g,'_')}`);
+    if (!inp) return true;
+    if (inp.value.trim() === '') return false;
+    const v = parseFloat(inp.value);
+    const b = BOUNDS[f];
+    return !isNaN(v) && v >= b[0] && v <= b[1];
+  });
+}
+
+function collectInputs(pid, fields) {
+  const obj = {};
+  fields.forEach(f => { obj[f] = getVal(pid, f); });
+  return obj;
+}
+
+// Build fields
+FIXED_F.forEach(f => mkField(f, 'fixedFields'));
+OPT_F.forEach(f   => mkField(f, 'compFields'));
+FIXED_F.forEach(f => mkField(f, 'optFields'));
+
+// Build bounds table
+OPT_F.forEach(f => {
+  const [lo, hi] = BOUNDS[f];
+  document.getElementById('boundsBody').innerHTML +=
+    `<tr><td>${f}</td><td>${lo}</td><td>${hi}</td><td>${UNITS[f]||''}</td></tr>`;
+});
+
+// Build sensitivity feature dropdown
+ALL_F.forEach(f => {
+  const o = document.createElement('option');
+  o.value = f; o.textContent = lu(f);
+  document.getElementById('sensFeatureSingle').appendChild(o);
+});
+
+// ─── Sensitivity feature change handler ──────────────────────────────────────
+function onSensFeatureChange() {
+  const feat = document.getElementById('sensFeatureSingle').value;
+  const panel = document.getElementById('sensPanelSingle');
+  const info  = document.getElementById('sensRangeInfo');
+  const minH  = document.getElementById('sensMinHint');
+  const maxH  = document.getElementById('sensMaxHint');
+
+  if (!feat) { panel.classList.remove('show'); return; }
+
+  panel.classList.add('show');
+  const [lo, hi] = BOUNDS[feat];
+  minH.textContent = `(data min: ${lo})`;
+  maxH.textContent = `(data max: ${hi})`;
+  info.textContent = `📊 Dataset bounds for ${feat}: min = ${lo} ${UNITS[feat]||''}, max = ${hi} ${UNITS[feat]||''}`;
+  info.classList.add('show');
+
+  // Clear previous inputs so user must enter deliberately
+  document.getElementById('sensStartSingle').value = '';
+  document.getElementById('sensStopSingle').value  = '';
+}
+
+// ─── Flask API helper ─────────────────────────────────────────────────────────
+async function apiPost(endpoint, body) {
+  const r = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const d = await r.json();
+  if (!r.ok || d.error) throw new Error(d.error || `Server error ${r.status}`);
+  return d;
+}
+
+// ─── PREDICT ─────────────────────────────────────────────────────────────────
+async function doPred() {
+  const btn = document.getElementById('predBtn');
+  const err = document.getElementById('predErr');
+  const res = document.getElementById('predResult');
+  err.className = 'err'; res.className = 'result-box';
+
+  // Check all fields are filled
+  if (!allFilled('fixedFields', FIXED_F) || !allFilled('compFields', OPT_F)) {
+    err.textContent = '⚠ All fields must be filled before predicting.';
+    err.classList.add('show'); return;
+  }
+  if (!allValid('fixedFields', FIXED_F) || !allValid('compFields', OPT_F)) {
+    err.textContent = '⚠ Fix the highlighted out-of-range fields before predicting.';
+    err.classList.add('show'); return;
+  }
+
+  const inputs = {};
+  FIXED_F.forEach(f => { inputs[f] = getVal('fixedFields', f); });
+  OPT_F.forEach(f   => { inputs[f] = getVal('compFields', f); });
+
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Predicting…';
+  try {
+    const out = await apiPost('/predict', inputs);
+    document.getElementById('eurVal').innerHTML = `${(+out.predicted_eur).toFixed(3)}<span class="unit">bcf</span>`;
+    res.classList.add('show');
+  } catch(e) {
+    err.textContent = '⚠ ' + e.message; err.classList.add('show');
+  } finally {
+    btn.disabled = false; btn.innerHTML = '▶ Predict EUR';
+  }
+}
+
+// ─── SENSITIVITY ANALYSIS ────────────────────────────────────────────────────
+async function doSens() {
+  const btn  = document.getElementById('sensBtn');
+  const err  = document.getElementById('sensErr');
+  const res  = document.getElementById('sensResult');
+  err.className = 'err'; res.className = 'result-box';
+
+  const feat  = document.getElementById('sensFeatureSingle').value;
+  const start = parseFloat(document.getElementById('sensStartSingle').value);
+  const stop  = parseFloat(document.getElementById('sensStopSingle').value);
+  const nPts  = Math.min(parseInt(document.getElementById('sensNSingle').value) || 10, 30);
+
+  // Validate: feature must be selected
+  if (!feat) {
+    err.textContent = '⚠ Please select a feature to sweep.';
+    err.classList.add('show'); return;
+  }
+  // Validate: range must be entered
+  if (isNaN(start) || document.getElementById('sensStartSingle').value.trim() === '') {
+    err.textContent = '⚠ Please enter the Range Start value before running sensitivity analysis.';
+    err.classList.add('show'); return;
+  }
+  if (isNaN(stop) || document.getElementById('sensStopSingle').value.trim() === '') {
+    err.textContent = '⚠ Please enter the Range Stop value before running sensitivity analysis.';
+    err.classList.add('show'); return;
+  }
+  if (start >= stop) {
+    err.textContent = '⚠ Range Start must be less than Range Stop.';
+    err.classList.add('show'); return;
+  }
+
+  // Validate bounds
+  const [lo, hi] = BOUNDS[feat];
+  if (start < lo || stop > hi) {
+    err.textContent = `⚠ Range must be within dataset bounds: ${lo} – ${hi} ${UNITS[feat]||''}`;
+    err.classList.add('show'); return;
+  }
+
+  // Check all prediction inputs are filled
+  if (!allFilled('fixedFields', FIXED_F) || !allFilled('compFields', OPT_F)) {
+    err.textContent = '⚠ All well parameter fields above must be filled before sensitivity analysis.';
+    err.classList.add('show'); return;
+  }
+  if (!allValid('fixedFields', FIXED_F) || !allValid('compFields', OPT_F)) {
+    err.textContent = '⚠ Fix out-of-range fields above before running sensitivity analysis.';
+    err.classList.add('show'); return;
+  }
+
+  // Build base inputs
+  const baseInputs = {};
+  FIXED_F.forEach(f => { baseInputs[f] = getVal('fixedFields', f); });
+  OPT_F.forEach(f   => { baseInputs[f] = getVal('compFields', f); });
+
+  // Build sweep rows
+  const rows = [];
+  for (let i = 0; i < nPts; i++) {
+    const val = +(start + (stop - start) * i / (nPts - 1)).toFixed(6);
+    rows.push({ ...baseInputs, [feat]: val });
+  }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spin-white"></span> Running Sensitivity…';
+  try {
+    const out = await apiPost('/predict_batch', { rows });
+    const results = out.results.map(r => ({ ...r, 'Predicted EUR': r.Predicted_EUR }));
+    showSens(results, feat);
+    res.classList.add('show');
+  } catch(e) {
+    err.textContent = '⚠ ' + e.message; err.classList.add('show');
+  } finally {
+    btn.disabled = false; btn.innerHTML = '📊 Run Sensitivity Analysis';
+  }
+}
+
+function showSens(results, feat) {
+  const maxEUR = Math.max(...results.map(r => +r['Predicted EUR']));
+  const minEUR = Math.min(...results.map(r => +r['Predicted EUR']));
+
+  // Table: feature column + EUR column
+  let h = `<div class="tbl-wrap"><table>
+    <thead><tr>
+      <th>#</th>
+      <th>${lu(feat)}</th>
+      <th>Predicted EUR (bcf)</th>
+      <th>Δ EUR</th>
+    </tr></thead><tbody>`;
+
+  const baseEUR = +results[0]['Predicted EUR'];
+  results.forEach((r, i) => {
+    const eur   = +r['Predicted EUR'];
+    const delta = eur - baseEUR;
+    const isMax = eur === maxEUR;
+    const rowCls = isMax ? 'row-sens-max' : '';
+    h += `<tr class="${rowCls}">
+      <td>${i+1}</td>
+      <td>${(+r[feat]).toFixed(DEC[feat]??2)}</td>
+      <td>${eur.toFixed(3)} ${isMax ? '▲ MAX' : ''}</td>
+      <td style="color:${delta>=0?'var(--accent)':'var(--red)'}">${delta>=0?'+':''}${delta.toFixed(3)}</td>
+    </tr>`;
+  });
+
+  h += `</tbody></table></div>`;
+
+  h += `<div class="sens-summary">
+    <span>Feature: <strong>${feat}</strong></span>
+    <span>|</span>
+    <span>Range: <strong>${(+results[0][feat]).toFixed(DEC[feat]??2)} → ${(+results[results.length-1][feat]).toFixed(DEC[feat]??2)} ${UNITS[feat]||''}</strong></span>
+    <span>|</span>
+    <span>${results.length} points</span>
+    <span>|</span>
+    <span>EUR range: <strong>${minEUR.toFixed(3)} – ${maxEUR.toFixed(3)} bcf</strong></span>
+  </div>`;
+
+  document.getElementById('sensContent').innerHTML = h;
+}
+
+// ─── BATCH ────────────────────────────────────────────────────────────────────
+function onFile(i) { document.getElementById('fileName').textContent = i.files[0]?.name || ''; }
+
+async function doBatch() {
+  const btn = document.getElementById('batchBtn');
+  const err = document.getElementById('batchErr');
+  const res = document.getElementById('batchResult');
+  const pw  = document.getElementById('progWrap');
+  const pb  = document.getElementById('progBar');
+  err.className = 'err'; res.className = 'result-box';
+
+  if (!document.getElementById('batchFile').files.length) {
+    err.textContent = '⚠ Please select a file.'; err.classList.add('show'); return;
+  }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Running…';
+  pw.classList.add('show'); pb.style.width = '8%';
+
+  try {
+    const file = document.getElementById('batchFile').files[0];
+    const text = await file.text();
+    const lines = text.trim().split('\n');
+    const headers = lines[0].split(',').map(h => h.trim());
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const vals = lines[i].split(',');
+      const row = {};
+      headers.forEach((h, j) => { if (BOUNDS[h] !== undefined) row[h] = +vals[j]; });
+      // Fill missing with median
+      ALL_F.forEach(f => { if (row[f] === undefined) row[f] = MEDIANS[f]; });
+      rows.push(row);
+    }
+    pb.style.width = '40%';
+    const out = await apiPost('/predict_batch', { rows });
+    pb.style.width = '90%';
+    const results = out.results.map(r => ({ ...r, 'Predicted EUR': r.Predicted_EUR }));
+    downloadXLSX(results);
+    showBatch(results);
+    res.classList.add('show');
+  } catch(e) {
+    err.textContent = '⚠ ' + e.message; err.classList.add('show');
+  } finally {
+    btn.disabled = false; btn.innerHTML = '▶ Run Batch Prediction';
+    setTimeout(() => { pw.classList.remove('show'); pb.style.width = '0'; }, 700);
+  }
+}
+
+function showBatch(rows) {
+  const cols = [...ALL_F, 'Predicted EUR'];
+  let h = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:rgba(0,200,160,.07);border:1px solid rgba(0,200,160,.25);border-radius:8px;">
+    <span style="font-size:1.2rem">✅</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:.78rem;color:var(--accent)">XLSX file downloaded automatically</span>
+  </div>`;
+  h += `<div class="tbl-wrap"><table><thead><tr>
+    ${cols.map(c => `<th>${c==='Predicted EUR'?'Predicted EUR (bcf)':lu(c)}</th>`).join('')}
+  </tr></thead><tbody>`;
+  rows.forEach(r => {
+    h += `<tr>${cols.map(c => `<td>${r[c]!==undefined?(typeof r[c]==='number'?(c==='Predicted EUR'?r[c].toFixed(3):r[c]):r[c]):'—'}</td>`).join('')}</tr>`;
+  });
+  h += `</tbody></table></div>`;
+  const maxEUR = Math.max(...rows.map(r => +r['Predicted EUR']));
+  const minEUR = Math.min(...rows.map(r => +r['Predicted EUR']));
+  h += `<div class="sens-summary" style="margin-top:12px">
+    <span>${rows.length} wells predicted</span><span>|</span>
+    <span>EUR: <strong>${minEUR.toFixed(3)} – ${maxEUR.toFixed(3)} bcf</strong></span>
+  </div>`;
+  document.getElementById('batchContent').innerHTML = h;
+}
+
+// ─── OPTIMIZE ─────────────────────────────────────────────────────────────────
+let optM = 'SLSQP';
+function pickMethod(m) {
+  optM = m;
+  document.getElementById('mSLSQP').classList.toggle('active', m==='SLSQP');
+  document.getElementById('mDE').classList.toggle('active', m==='DE');
+}
+
+async function doOpt() {
+  const btn = document.getElementById('optBtn');
+  const err = document.getElementById('optErr');
+  const res = document.getElementById('optResult');
+  err.className = 'err'; res.className = 'result-box';
+
+  // Check all boxes are filled
+  if (!allFilled('optFields', FIXED_F)) {
+    err.textContent = '⚠ All geological input fields must be filled before optimizing.';
+    err.classList.add('show'); return;
+  }
+  if (!allValid('optFields', FIXED_F)) {
+    err.textContent = '⚠ Fix the highlighted out-of-range fields before optimizing.';
+    err.classList.add('show'); return;
+  }
+
+  const fixed = {};
+  FIXED_F.forEach(f => { fixed[f] = getVal('optFields', f); });
+
+  btn.disabled = true; btn.innerHTML = '<span class="spin" style="border-top-color:#000"></span> Optimizing…';
+  try {
+    const out = await apiPost('/optimize', { fixed, bounds: BOUNDS, method: optM });
+    showOpt(fixed, out.optimized, out.best_eur, out.method || optM, out.success);
+    res.classList.add('show');
+  } catch(e) {
+    err.textContent = '⚠ ' + e.message; err.classList.add('show');
+  } finally {
+    btn.disabled = false; btn.innerHTML = '⚙ Run Optimization';
+  }
+}
+
+function showOpt(fixed, opt, eur, method, ok) {
+  let h = '';
+  FIXED_F.forEach(f => {
+    h += `<tr class="row-fixed"><td>${f}</td><td>${(+fixed[f]).toFixed(DEC[f]||2)}</td><td>${UNITS[f]||''}</td><td>Fixed</td></tr>`;
+  });
+  OPT_F.forEach(f => {
+    const v = opt ? opt[f] : '—';
+    h += `<tr class="row-opt"><td>${f}</td><td>${v!==undefined?(+v).toFixed(DEC[f]||2):'—'}</td><td>${UNITS[f]||''}</td><td>Optimized</td></tr>`;
+  });
+  h += `<tr class="row-out"><td>Predicted EUR</td><td>${(+eur).toFixed(3)}</td><td>bcf</td><td>Output</td></tr>`;
+  document.getElementById('optBody').innerHTML = h;
+  document.getElementById('optResultTitle').textContent = `Results — ${method||optM} — ${ok?'✓ Converged':'⚠ Check'}`;
+}
+
+// ─── XLSX Download (pure JS, no library needed) ───────────────────────────────
+function downloadXLSX(rows) {
+  const cols = [...ALL_F, 'Predicted EUR'];
+
+  // Build XML for a simple Office Open XML workbook
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const sharedStrings = [];
+  const strIdx = {};
+  const si = v => {
+    const s = String(v);
+    if (strIdx[s] === undefined) { strIdx[s] = sharedStrings.length; sharedStrings.push(s); }
+    return strIdx[s];
+  };
+
+  // Header row
+  const headerRow = cols.map(c => `<c t="s"><v>${si(c === 'Predicted EUR' ? 'Predicted EUR (bcf)' : c)}</v></c>`).join('');
+  let xmlRows = `<row r="1">${headerRow}</row>`;
+
+  rows.forEach((r, ri) => {
+    const cells = cols.map((c, ci) => {
+      const val = r[c] ?? '';
+      const col = String.fromCharCode(65 + ci);
+      const ref = `${col}${ri + 2}`;
+      if (typeof val === 'number') return `<c r="${ref}"><v>${val}</v></c>`;
+      return `<c r="${ref}" t="s"><v>${si(val)}</v></c>`;
+    }).join('');
+    xmlRows += `<row r="${ri + 2}">${cells}</row>`;
+  });
+
+  const ssXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${sharedStrings.length}" uniqueCount="${sharedStrings.length}">
+${sharedStrings.map(s => `<si><t>${esc(s)}</t></si>`).join('')}
+</sst>`;
+
+  const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<sheetData>${xmlRows}</sheetData>
+</worksheet>`;
+
+  const wbXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheets><sheet name="Batch Results" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`;
+
+  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>
+</Relationships>`;
+
+  const appRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+
+  const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml"  ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml"            ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/worksheets/sheet1.xml"   ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+<Override PartName="/xl/sharedStrings.xml"       ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>
+</Types>`;
+
+  // Pack into ZIP using fflate (loaded from CDN)
+  const enc = s => new TextEncoder().encode(s);
+  const files = {
+    '[Content_Types].xml':            enc(ct),
+    '_rels/.rels':                    enc(appRels),
+    'xl/workbook.xml':                enc(wbXml),
+    'xl/_rels/workbook.xml.rels':     enc(relsXml),
+    'xl/worksheets/sheet1.xml':       enc(sheetXml),
+    'xl/sharedStrings.xml':           enc(ssXml),
+  };
+
+  fflate.zip(files, { level: 6 }, (err, data) => {
+    if (err) { console.error('XLSX zip error', err); return; }
+    const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `batch_results_${new Date().toISOString().slice(0,10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+}
+
+// ─── DRAG & DROP ──────────────────────────────────────────────────────────────
+const fd = document.getElementById('fileDrop');
+fd.addEventListener('dragover', e => { e.preventDefault(); fd.classList.add('drag'); });
+fd.addEventListener('dragleave', () => fd.classList.remove('drag'));
+fd.addEventListener('drop', e => {
+  e.preventDefault(); fd.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) {
+    const dt = new DataTransfer(); dt.items.add(f);
+    document.getElementById('batchFile').files = dt.files;
+    document.getElementById('fileName').textContent = f.name;
+  }
+});
+</script>
+</body>
+</html>
