@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>EUR Predictor</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/fflate/0.8.2/fflate.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -383,18 +382,23 @@ tbody td {
 }
 .about-btn {
   margin-left: auto;
-  background: none;
-  border: 1.5px solid var(--border);
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none;
   border-radius: 50%;
-  width: 36px; height: 36px;
-  font-size: 1.1rem;
-  color: var(--txt2);
+  width: 38px; height: 38px;
+  font-size: 1.15rem;
+  color: #fff;
   cursor: pointer;
-  transition: all .2s;
+  transition: all .25s;
   display: grid; place-items: center;
   flex-shrink: 0;
+  box-shadow: 0 0 12px rgba(0,200,160,.55), 0 0 24px rgba(0,133,255,.25);
+  font-weight: 700;
 }
-.about-btn:hover { border-color: var(--accent); color: var(--accent); }
+.about-btn:hover {
+  transform: scale(1.12);
+  box-shadow: 0 0 18px rgba(0,200,160,.8), 0 0 36px rgba(0,133,255,.4);
+}
 
 /* ABOUT MODAL */
 .modal-overlay {
@@ -678,18 +682,18 @@ tbody td {
 
     <div class="modal-section-title">Source Code & Data</div>
     <div class="src-card">
-      <div>📓 <strong>Model Notebook:</strong> ANN_model.ipynb — Full training pipeline, preprocessing, and evaluation</div>
-      <div>📦 <strong>Model File:</strong> ANN_model.pkl — Trained ANN model (scikit-learn / keras)</div>
-      <div>🔧 <strong>Transformer:</strong> quantile_transformer.pkl — Quantile normalization for Porosity &amp; % LG</div>
-      <div>🌐 <strong>Backend:</strong> app.py — Flask REST API (Python)</div>
-      <div>💾 <strong>Training Data:</strong> Real field dataset from unconventional reservoir wells (confidential)</div>
+      <div>📓 <strong>Model Notebook:</strong> <a href="/static/ANN_model.ipynb" download>ANN_model.ipynb</a> — Full training pipeline, preprocessing, and evaluation</div>
+      <div>📦 <strong>Model File:</strong> <a href="/static/ANN_model.pkl" download>ANN_model.pkl</a> — Trained ANN model</div>
+      <div>🔧 <strong>Transformer:</strong> <a href="/static/quantile_transformer.pkl" download>quantile_transformer.pkl</a> — Quantile normalization</div>
+      <div>🌐 <strong>Backend:</strong> <a href="/static/app.py" download>app.py</a> — Flask REST API (Python)</div>
+      <div>💾 <strong>Training Data:</strong> Confidential field dataset — not available for download</div>
     </div>
 
     <div class="copyright">© 2026 EUR Predictor — All Rights Reserved.</div>
   </div>
 </div>
 <script>
-
+// ─── Data from real CSV dataset ───────────────────────────────────────────────
 const UNITS = {
   'Stage Spacing':'ft','Well Spacing':'ft','Thickness':'ft',
   'Injection Rate':'bbl/min','Water Saturation':'%','Pressure Gradient':'psi/ft',
@@ -1187,11 +1191,24 @@ async function doOpt() {
   FIXED_F.forEach(f => { fixed[f] = getVal('optFields', f); });
 
   btn.disabled = true; btn.innerHTML = '<span class="spin" style="border-top-color:#000"></span> Optimizing…';
+  
+  // Show timeout warning after 8 seconds
+  const warnTimer = setTimeout(() => {
+    err.textContent = '⏳ Optimization is running on the server, this may take 20–40 seconds on Render free tier…';
+    err.classList.add('show');
+    err.style.background = 'rgba(245,166,35,.08)';
+    err.style.color = 'var(--warn)';
+    err.style.borderColor = 'rgba(245,166,35,.3)';
+  }, 8000);
+
   try {
     const out = await apiPost('/optimize', { fixed, bounds: BOUNDS, method: optM });
+    clearTimeout(warnTimer);
+    err.className = 'err';
     showOpt(fixed, out.optimized, out.best_eur, out.method || optM, out.success);
     res.classList.add('show');
   } catch(e) {
+    clearTimeout(warnTimer);
     err.textContent = '⚠ ' + e.message; err.classList.add('show');
   } finally {
     btn.disabled = false; btn.innerHTML = '⚙ Run Optimization';
@@ -1212,92 +1229,22 @@ function showOpt(fixed, opt, eur, method, ok) {
   document.getElementById('optResultTitle').textContent = `Results — ${method||optM} — ${ok?'✓ Converged':'⚠ Check'}`;
 }
 
-// ─── XLSX Download (pure JS, no library needed) ───────────────────────────────
+// ─── XLSX Download (using SheetJS) ───────────────────────────────────────────
 function downloadXLSX(rows) {
   const cols = [...ALL_F, 'Predicted EUR'];
-
-  // Build XML for a simple Office Open XML workbook
-  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-  const sharedStrings = [];
-  const strIdx = {};
-  const si = v => {
-    const s = String(v);
-    if (strIdx[s] === undefined) { strIdx[s] = sharedStrings.length; sharedStrings.push(s); }
-    return strIdx[s];
-  };
-
-  // Header row
-  const headerRow = cols.map(c => `<c t="s"><v>${si(c === 'Predicted EUR' ? 'Predicted EUR (bcf)' : c)}</v></c>`).join('');
-  let xmlRows = `<row r="1">${headerRow}</row>`;
-
-  rows.forEach((r, ri) => {
-    const cells = cols.map((c, ci) => {
-      const val = r[c] ?? '';
-      const col = String.fromCharCode(65 + ci);
-      const ref = `${col}${ri + 2}`;
-      if (typeof val === 'number') return `<c r="${ref}"><v>${val}</v></c>`;
-      return `<c r="${ref}" t="s"><v>${si(val)}</v></c>`;
-    }).join('');
-    xmlRows += `<row r="${ri + 2}">${cells}</row>`;
-  });
-
-  const ssXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${sharedStrings.length}" uniqueCount="${sharedStrings.length}">
-${sharedStrings.map(s => `<si><t>${esc(s)}</t></si>`).join('')}
-</sst>`;
-
-  const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<sheetData>${xmlRows}</sheetData>
-</worksheet>`;
-
-  const wbXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
-          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<sheets><sheet name="Batch Results" sheetId="1" r:id="rId1"/></sheets>
-</workbook>`;
-
-  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>
-</Relationships>`;
-
-  const appRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
-</Relationships>`;
-
-  const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-<Default Extension="xml"  ContentType="application/xml"/>
-<Override PartName="/xl/workbook.xml"            ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-<Override PartName="/xl/worksheets/sheet1.xml"   ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-<Override PartName="/xl/sharedStrings.xml"       ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>
-</Types>`;
-
-  // Pack into ZIP using fflate (loaded from CDN)
-  const enc = s => new TextEncoder().encode(s);
-  const files = {
-    '[Content_Types].xml':            enc(ct),
-    '_rels/.rels':                    enc(appRels),
-    'xl/workbook.xml':                enc(wbXml),
-    'xl/_rels/workbook.xml.rels':     enc(relsXml),
-    'xl/worksheets/sheet1.xml':       enc(sheetXml),
-    'xl/sharedStrings.xml':           enc(ssXml),
-  };
-
-  fflate.zip(files, { level: 6 }, (err, data) => {
-    if (err) { console.error('XLSX zip error', err); return; }
-    const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `batch_results_${new Date().toISOString().slice(0,10)}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  });
+  const wsData = [
+    cols.map(c => c === 'Predicted EUR' ? 'Predicted EUR (bcf)' : c),
+    ...rows.map(r => cols.map(c => {
+      const v = r[c];
+      if (v === undefined) return '';
+      if (typeof v === 'number') return c === 'Predicted EUR' ? +v.toFixed(3) : v;
+      return v;
+    }))
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Batch Results');
+  XLSX.writeFile(wb, `batch_results_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 // ─── ABOUT MODAL ─────────────────────────────────────────────────────────────
