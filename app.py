@@ -2,7 +2,7 @@
 Smart Fracing System - Flask API (Production Ready)
 """
 
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 import joblib
 import numpy as np
@@ -13,8 +13,6 @@ CORS(app)
 
 # تجاهل التحذيرات
 warnings.filterwarnings('ignore')
-
-app = Flask(__name__)
 
 # الحصول على المسار الأساسي للمشروع
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -72,6 +70,11 @@ def predict_eur(params):
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok'})
+
+
+@app.route('/static/<path:filename>', methods=['GET'])
+def serve_static(filename):
+    return send_from_directory(BASE_DIR, filename)
 
 
 @app.route('/predict', methods=['POST'])
@@ -143,23 +146,21 @@ def optimize():
         scipy_bounds = list(zip(lo, hi))
         if method == 'DE':
             res = differential_evolution(
-                objective, scipy_bounds, seed=42, maxiter=500,
-                popsize=20, tol=1e-8, workers=1, mutation=(0.5, 1.5), recombination=0.9
+                objective, scipy_bounds, seed=42, maxiter=150,
+                popsize=12, tol=1e-6, workers=1, mutation=(0.5, 1.2), recombination=0.8
             )
         else:
             # Try multiple starting points and keep the best result
             best_res = None
             starts = [
-                [(l+h)/2 for l,h in scipy_bounds],          # midpoints
-                [l for l,h in scipy_bounds],                  # lower bounds
-                [h for l,h in scipy_bounds],                  # upper bounds
-                [l + (h-l)*0.25 for l,h in scipy_bounds],    # 25th percentile
-                [l + (h-l)*0.75 for l,h in scipy_bounds],    # 75th percentile
+                [(l+h)/2 for l,h in scipy_bounds],
+                [l + (h-l)*0.25 for l,h in scipy_bounds],
+                [l + (h-l)*0.75 for l,h in scipy_bounds],
             ]
             for x0 in starts:
                 try:
                     r = minimize(objective, x0, method='SLSQP', bounds=scipy_bounds,
-                                 options={'ftol': 1e-12, 'maxiter': 1000})
+                                 options={'ftol': 1e-9, 'maxiter': 300})
                     if best_res is None or r.fun < best_res.fun:
                         best_res = r
                 except Exception:
