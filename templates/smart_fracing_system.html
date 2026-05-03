@@ -3,9 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Smart Fracing System</title>
+<title>EUR Predictor</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fflate/0.8.2/fflate.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -379,8 +381,126 @@ tbody td {
   border: 1px solid rgba(0,200,160,.2);
   font-family: 'IBM Plex Mono', monospace; font-size: .75rem; color: var(--txt2);
 }
-.sens-summary strong { color: var(--accent); }
-</style>
+.about-btn {
+  margin-left: auto;
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 50%;
+  width: 36px; height: 36px;
+  font-size: 1.1rem;
+  color: var(--txt2);
+  cursor: pointer;
+  transition: all .2s;
+  display: grid; place-items: center;
+  flex-shrink: 0;
+}
+.about-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ABOUT MODAL */
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.7);
+  backdrop-filter: blur(4px);
+  padding: 20px;
+  overflow-y: auto;
+}
+.modal-overlay.show { display: flex; align-items: flex-start; justify-content: center; }
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 100%; max-width: 600px;
+  padding: clamp(20px,5vw,36px);
+  margin: auto;
+  position: relative;
+}
+.modal-close {
+  position: absolute; top: 14px; right: 14px;
+  background: none; border: none;
+  color: var(--txt2); font-size: 1.4rem;
+  cursor: pointer; line-height: 1;
+  transition: color .2s;
+}
+.modal-close:hover { color: var(--txt); }
+.modal-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.5rem; font-weight: 700;
+  color: var(--accent); margin-bottom: 6px; letter-spacing: .06em;
+}
+.modal-subtitle {
+  font-size: .8rem; color: var(--txt2); margin-bottom: 20px; line-height: 1.6;
+}
+.modal-section-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--txt2); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.modal-section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+.dev-cards { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+.dev-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  flex: 1; min-width: 140px;
+  text-align: center;
+}
+.dev-card .dev-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: grid; place-items: center;
+  font-size: 1.1rem; margin: 0 auto 8px;
+}
+.dev-card .dev-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: .9rem; font-weight: 700; color: var(--txt);
+}
+.ded-card {
+  background: linear-gradient(135deg, rgba(0,200,160,.08), rgba(0,133,255,.08));
+  border: 1px solid rgba(0,200,160,.25);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  font-size: .82rem; color: var(--txt2); line-height: 1.7;
+}
+.ded-card strong { color: var(--accent); font-size: .9rem; }
+.src-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  font-size: .8rem; color: var(--txt2); line-height: 1.8;
+}
+.src-card a { color: var(--accent2); text-decoration: none; }
+.src-card a:hover { text-decoration: underline; }
+.copyright {
+  text-align: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .65rem; color: var(--txt2);
+  margin-top: 4px;
+  letter-spacing: .04em;
+}
+
+/* SENSITIVITY CHART */
+#sensChartWrap {
+  display: none;
+  margin-top: 16px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+#sensChartWrap.show { display: block; }
+#sensChartTitle {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .72rem; color: var(--txt2);
+  margin-bottom: 10px; letter-spacing: .04em;
+}
+#sensChart { width: 100% !important; }
+
 </head>
 <body>
 <div class="page">
@@ -388,9 +508,10 @@ tbody td {
   <header>
     <div class="logo">🛢️</div>
     <div>
-      <h1>Smart <span>Fracing</span> System</h1>
+      <h1>EUR <span>Predictor</span></h1>
       <p>ANN-powered EUR prediction &amp; completion optimization</p>
     </div>
+    <button class="about-btn" onclick="openAbout()" title="About">ℹ</button>
   </header>
 
   <div class="tabs-bar">
@@ -465,6 +586,10 @@ tbody td {
       <div class="result-box" id="sensResult">
         <div class="card-title" style="margin-bottom:10px;color:var(--warn)">Sensitivity Results</div>
         <div id="sensContent"></div>
+        <div id="sensChartWrap">
+          <div id="sensChartTitle">EUR vs Feature — Trend Chart</div>
+          <canvas id="sensChart" height="220"></canvas>
+        </div>
       </div>
     </div>
 
@@ -523,6 +648,45 @@ tbody td {
   </div>
   </div>
 
+</div>
+
+<!-- ABOUT MODAL -->
+<div class="modal-overlay" id="aboutModal" onclick="closeAboutOutside(event)">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeAbout()">✕</button>
+    <div class="modal-title">EUR PREDICTOR</div>
+    <div class="modal-subtitle">
+      An AI-powered web application for predicting Estimated Ultimate Recovery (EUR) of hydraulically fractured wells using an Artificial Neural Network (ANN) model. The system supports single-well prediction, batch upload, sensitivity analysis, and completion parameter optimization — all grounded in real field data from unconventional reservoirs.
+    </div>
+
+    <div class="modal-section-title">Model Overview</div>
+    <div class="src-card" style="margin-bottom:20px;">
+      The ANN model takes 11 geological and completion engineering features as input and predicts EUR in bcf. Features are preprocessed using log transforms and quantile normalization before inference. The optimizer uses SLSQP / Differential Evolution (scipy) to find completion parameters that maximize predicted EUR given fixed geological conditions.
+    </div>
+
+    <div class="modal-section-title">Developers</div>
+    <div class="dev-cards">
+      <div class="dev-card"><div class="dev-avatar">👨‍💻</div><div class="dev-name">MOAID NADIR</div></div>
+      <div class="dev-card"><div class="dev-avatar">👨‍💻</div><div class="dev-name">MOHAMED MAHJOUB</div></div>
+      <div class="dev-card"><div class="dev-avatar">👨‍💻</div><div class="dev-name">ABU-BAKR MOHAMED</div></div>
+    </div>
+
+    <div class="modal-section-title">Acknowledgements</div>
+    <div class="ded-card">
+      🎓 Special thanks and deep appreciation to <strong>Dr. OSAM</strong> — for guidance, mentorship, and inspiration throughout the development of this project. Your dedication to teaching and excellence made this work possible.
+    </div>
+
+    <div class="modal-section-title">Source Code & Data</div>
+    <div class="src-card">
+      <div>📓 <strong>Model Notebook:</strong> ANN_model.ipynb — Full training pipeline, preprocessing, and evaluation</div>
+      <div>📦 <strong>Model File:</strong> ANN_model.pkl — Trained ANN model (scikit-learn / keras)</div>
+      <div>🔧 <strong>Transformer:</strong> quantile_transformer.pkl — Quantile normalization for Porosity &amp; % LG</div>
+      <div>🌐 <strong>Backend:</strong> app.py — Flask REST API (Python)</div>
+      <div>💾 <strong>Training Data:</strong> Real field dataset from unconventional reservoir wells (confidential)</div>
+    </div>
+
+    <div class="copyright">© 2026 EUR Predictor — All Rights Reserved.</div>
+  </div>
 </div>
 <script>
 // ─── Data from real CSV dataset ───────────────────────────────────────────────
@@ -676,6 +840,7 @@ function onSensFeatureChange() {
 
 // ─── Flask API helper ─────────────────────────────────────────────────────────
 async function apiPost(endpoint, body) {
+  // استخدام window.location.origin لضمان الاتصال بنفس السيرفر المرفوع عليه الموقع
   const url = window.location.origin + endpoint; 
   
   const r = await fetch(url, {
@@ -838,6 +1003,67 @@ function showSens(results, feat) {
   </div>`;
 
   document.getElementById('sensContent').innerHTML = h;
+
+  // ── Draw trend chart ───────────────────────────────────────────────────────
+  const chartWrap = document.getElementById('sensChartWrap');
+  chartWrap.classList.add('show');
+  document.getElementById('sensChartTitle').textContent =
+    `EUR vs ${feat} (${UNITS[feat]||''}) — Trend`;
+
+  const labels = results.map(r => (+r[feat]).toFixed(DEC[feat]??2));
+  const eurVals = results.map(r => +(+r['Predicted EUR']).toFixed(4));
+
+  // Destroy previous chart instance if any
+  if (window._sensChart) { window._sensChart.destroy(); }
+
+  const ctx = document.getElementById('sensChart').getContext('2d');
+  window._sensChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Predicted EUR (bcf)',
+        data: eurVals,
+        borderColor: '#00c8a0',
+        backgroundColor: 'rgba(0,200,160,.1)',
+        borderWidth: 2.5,
+        pointBackgroundColor: '#00c8a0',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { labels: { color: '#8899aa', font: { family: 'IBM Plex Mono', size: 11 } } },
+        tooltip: {
+          backgroundColor: '#111620',
+          borderColor: '#1f2a3c',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#8899aa',
+          callbacks: {
+            title: items => `${feat}: ${items[0].label} ${UNITS[feat]||''}`,
+            label: item => `EUR: ${item.raw.toFixed(3)} bcf`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#8899aa', font: { family: 'IBM Plex Mono', size: 10 }, maxRotation: 45 },
+          grid: { color: 'rgba(31,42,60,.8)' },
+          title: { display: true, text: `${feat} (${UNITS[feat]||''})`, color: '#8899aa', font: { size: 11 } }
+        },
+        y: {
+          ticks: { color: '#8899aa', font: { family: 'IBM Plex Mono', size: 10 } },
+          grid: { color: 'rgba(31,42,60,.8)' },
+          title: { display: true, text: 'EUR (bcf)', color: '#8899aa', font: { size: 11 } }
+        }
+      }
+    }
+  });
 }
 
 // ─── BATCH ────────────────────────────────────────────────────────────────────
@@ -860,17 +1086,41 @@ async function doBatch() {
 
   try {
     const file = document.getElementById('batchFile').files[0];
-    const text = await file.text();
-    const lines = text.trim().split('\n');
-    const headers = lines[0].split(',').map(h => h.trim());
-    const rows = [];
-    for (let i = 1; i < lines.length; i++) {
-      const vals = lines[i].split(',');
-      const row = {};
-      headers.forEach((h, j) => { if (BOUNDS[h] !== undefined) row[h] = +vals[j]; });
-      // Fill missing with median
-      ALL_F.forEach(f => { if (row[f] === undefined) row[f] = MEDIANS[f]; });
-      rows.push(row);
+    const isXLSX = file.name.match(/\.xlsx?$/i);
+    let rows = [];
+
+    if (isXLSX) {
+      // Parse XLSX using SheetJS
+      const ab = await file.arrayBuffer();
+      const wb = XLSX.read(ab, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      for (const rowData of data) {
+        const row = {};
+        for (const h of Object.keys(rowData)) {
+          const key = h.trim();
+          if (BOUNDS[key] !== undefined) row[key] = +rowData[h];
+        }
+        ALL_F.forEach(f => { if (row[f] === undefined || isNaN(row[f])) row[f] = MEDIANS[f]; });
+        rows.push(row);
+      }
+    } else {
+      // Parse CSV
+      const text = await file.text();
+      const lines = text.trim().split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const vals = lines[i].split(',');
+        const row = {};
+        headers.forEach((h, j) => { if (BOUNDS[h] !== undefined) row[h] = +vals[j]; });
+        ALL_F.forEach(f => { if (row[f] === undefined) row[f] = MEDIANS[f]; });
+        rows.push(row);
+      }
+    }
+
+    if (rows.length === 0) {
+      throw new Error('No valid rows found in file. Check column names match exactly.');
     }
     pb.style.width = '40%';
     const out = await apiPost('/predict_batch', { rows });
@@ -1049,6 +1299,20 @@ ${sharedStrings.map(s => `<si><t>${esc(s)}</t></si>`).join('')}
     URL.revokeObjectURL(a.href);
   });
 }
+
+// ─── ABOUT MODAL ─────────────────────────────────────────────────────────────
+function openAbout() {
+  document.getElementById('aboutModal').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeAbout() {
+  document.getElementById('aboutModal').classList.remove('show');
+  document.body.style.overflow = '';
+}
+function closeAboutOutside(e) {
+  if (e.target === document.getElementById('aboutModal')) closeAbout();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAbout(); });
 
 // ─── DRAG & DROP ──────────────────────────────────────────────────────────────
 const fd = document.getElementById('fileDrop');
