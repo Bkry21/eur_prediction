@@ -92,6 +92,33 @@ def predict():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/predict_batch', methods=['POST'])
+def predict_batch():
+    try:
+        data = request.get_json(force=True)
+        rows = data.get('rows', [])
+        if not rows:
+            return jsonify({'error': 'No rows provided'}), 400
+
+        required = ['Stage Spacing','Well Spacing','Thickness','Injection Rate',
+                    'Water Saturation','Pressure Gradient','Proppant Loading',
+                    'Lateral Length','ISIP','Porosity','Percentage of LG']
+
+        results = []
+        for row in rows:
+            missing = [k for k in required if k not in row]
+            if missing:
+                return jsonify({'error': f'Missing fields in row: {missing}'}), 400
+            eur = predict_eur(row)
+            result = {k: row[k] for k in required}
+            result['Predicted_EUR'] = round(eur, 4)
+            results.append(result)
+
+        return jsonify({'results': results})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/optimize', methods=['POST'])
 def optimize():
     try:
@@ -115,10 +142,29 @@ def optimize():
 
         scipy_bounds = list(zip(lo, hi))
         if method == 'DE':
-            res = differential_evolution(objective, scipy_bounds, seed=42, maxiter=300, workers=1)
+            res = differential_evolution(
+                objective, scipy_bounds, seed=42, maxiter=500,
+                popsize=20, tol=1e-8, workers=1, mutation=(0.5, 1.5), recombination=0.9
+            )
         else:
-            x0 = [(l+h)/2 for l,h in scipy_bounds]
-            res = minimize(objective, x0, method='SLSQP', bounds=scipy_bounds)
+            # Try multiple starting points and keep the best result
+            best_res = None
+            starts = [
+                [(l+h)/2 for l,h in scipy_bounds],          # midpoints
+                [l for l,h in scipy_bounds],                  # lower bounds
+                [h for l,h in scipy_bounds],                  # upper bounds
+                [l + (h-l)*0.25 for l,h in scipy_bounds],    # 25th percentile
+                [l + (h-l)*0.75 for l,h in scipy_bounds],    # 75th percentile
+            ]
+            for x0 in starts:
+                try:
+                    r = minimize(objective, x0, method='SLSQP', bounds=scipy_bounds,
+                                 options={'ftol': 1e-12, 'maxiter': 1000})
+                    if best_res is None or r.fun < best_res.fun:
+                        best_res = r
+                except Exception:
+                    pass
+            res = best_res
 
         optimized = {k: round(float(res.x[i]), 4) for i, k in enumerate(opt_keys)}
         best_eur  = predict_eur({**fixed, **optimized})
