@@ -125,37 +125,39 @@ def predict_batch():
 @app.route('/optimize', methods=['POST'])
 def optimize():
     try:
-        # استيراد scipy هنا لضمان عملها داخل السيرفر
         from scipy.optimize import minimize, differential_evolution
-        
-        data    = request.get_json(force=True)
-        fixed   = data.get('fixed', {})
-        bounds  = data.get('bounds', {})
-        method  = data.get('method', 'SLSQP')
-        
-        opt_keys = list(bounds.keys())
+
+        data   = request.get_json(force=True)
+        fixed  = data.get('fixed', {})
+        bounds = data.get('bounds', {})
+        method = data.get('method', 'SLSQP')
+
+        # Only optimize over keys that are in bounds AND not in fixed
+        opt_keys = [k for k in bounds.keys() if k not in fixed]
         lo = [bounds[k][0] for k in opt_keys]
         hi = [bounds[k][1] for k in opt_keys]
 
         def objective(x):
-            params = {**fixed}
+            params = dict(fixed)
             for i, k in enumerate(opt_keys):
-                params[k] = x[i]
+                params[k] = float(x[i])
             return -predict_eur(params)
 
         scipy_bounds = list(zip(lo, hi))
+
         if method == 'DE':
             res = differential_evolution(
                 objective, scipy_bounds, seed=42, maxiter=150,
-                popsize=12, tol=1e-6, workers=1, mutation=(0.5, 1.2), recombination=0.8
+                popsize=12, tol=1e-6, workers=1,
+                mutation=(0.5, 1.2), recombination=0.8,
+                init='sobol'
             )
         else:
-            # Try multiple starting points and keep the best result
             best_res = None
             starts = [
-                [(l+h)/2 for l,h in scipy_bounds],
-                [l + (h-l)*0.25 for l,h in scipy_bounds],
-                [l + (h-l)*0.75 for l,h in scipy_bounds],
+                [(l + h) / 2          for l, h in scipy_bounds],
+                [l + (h - l) * 0.25   for l, h in scipy_bounds],
+                [l + (h - l) * 0.75   for l, h in scipy_bounds],
             ]
             for x0 in starts:
                 try:
@@ -167,13 +169,16 @@ def optimize():
                     pass
             res = best_res
 
+        if res is None:
+            return jsonify({'error': 'Optimization failed — no valid result found'}), 500
+
         optimized = {k: round(float(res.x[i]), 4) for i, k in enumerate(opt_keys)}
         best_eur  = predict_eur({**fixed, **optimized})
-        
+
         return jsonify({
-            'success': bool(res.success), 
-            'method': method,
-            'best_eur': round(best_eur, 4), 
+            'success':   bool(res.success),
+            'method':    method,
+            'best_eur':  round(best_eur, 4),
             'optimized': optimized
         })
     except Exception as e:
