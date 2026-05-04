@@ -684,6 +684,13 @@ tbody td {
     </div>
 
     <div class="modal-section-title">Developers</div>
+    <div class="dev-card">
+        <a href="https://linkedin.com/in/placeholder-abubakr" target="_blank" rel="noopener">
+          <div class="dev-avatar"><img src="ABU.jpeg" alt=""></div>
+          <div class="dev-name">ABU-BAKR MOHAMED</div>
+          <div class="dev-role">🔗 LinkedIn</div>
+        </a>
+      </div>
     <div class="dev-cards">
       <div class="dev-card">
         <a href="https://linkedin.com/in/placeholder-moaid" target="_blank" rel="noopener">
@@ -694,23 +701,17 @@ tbody td {
       </div>
       <div class="dev-card">
         <a href="https://linkedin.com/in/placeholder-mahjoub" target="_blank" rel="noopener">
-          <div class="dev-avatar"><img src="https://ui-avatars.com/api/?name=Mohamed+Mahjoub&background=0085ff&color=fff&size=128" alt="MOHAMED MAHJOUB"></div>
+          <div class="dev-avatar"><img src="MOH.jpeg" alt=""></div>
           <div class="dev-name">MOHAMED MAHJOUB</div>
           <div class="dev-role">🔗 LinkedIn</div>
         </a>
       </div>
-      <div class="dev-card">
-        <a href="https://linkedin.com/in/placeholder-abubakr" target="_blank" rel="noopener">
-          <div class="dev-avatar"><img src="https://ui-avatars.com/api/?name=Abu-Bakr+Mohamed&background=7c3aed&color=fff&size=128" alt="ABU-BAKR MOHAMED"></div>
-          <div class="dev-name">ABU-BAKR MOHAMED</div>
-          <div class="dev-role">🔗 LinkedIn</div>
-        </a>
-      </div>
+      
     </div>
 
     <div class="modal-section-title">Acknowledgements</div>
     <div class="ded-card">
-      🎓 Special thanks and deep appreciation to <strong>Dr. OSAM</strong> — for guidance, mentorship, and inspiration throughout the development of this project. Your dedication to teaching and excellence made this work possible.
+      🎓 Special thanks and deep appreciation to <strong>Dr. OSAMA MUTRIF</strong> — for guidance, mentorship, and inspiration throughout the development of this project. Your dedication to teaching and excellence made this work possible.
     </div>
 
     <div class="modal-section-title">Source Code & Data</div>
@@ -782,8 +783,8 @@ function mkField(f, pid) {
   const hid = `hint_${pid}_${f.replace(/\s+/g,'_')}`;
   const d = document.createElement('div'); d.className = 'field';
   d.innerHTML = `
-    <label>${lu(f)} <small style="color:var(--txt2)">[${b[0]}–${b[1]}]</small></label>
-    <input type="number" id="${id}" value="" step="any" placeholder="median: ${MEDIANS[f]}">
+    <label>${lu(f)} <small style="color:var(--accent);font-size:.6rem">[${b[0]}–${b[1]}]</small></label>
+    <input type="number" id="${id}" value="" step="any" placeholder="${b[0]} – ${b[1]}">
     <div class="range-hint" id="${hid}">⚠ Valid range: ${b[0]} – ${b[1]}</div>`;
   p.appendChild(d);
   const inp = d.querySelector('input');
@@ -965,28 +966,35 @@ async function doSens() {
     err.classList.add('show'); return;
   }
 
-  // Validate only non-swept fields: if filled they must be in range; if empty we use median
+  // Validate all other fields must be filled and in range (no median fallback)
   const otherFields = ALL_F.filter(f => f !== feat);
+  const emptyOthers = otherFields.filter(f => {
+    const pid = FIXED_F.includes(f) ? 'fixedFields' : 'compFields';
+    const inp = document.getElementById(`inp_${pid}_${f.replace(/\s+/g,'_')}`);
+    return !inp || inp.value.trim() === '';
+  });
+  if (emptyOthers.length > 0) {
+    err.textContent = `⚠ Please fill all Single Well fields before running sensitivity (except the selected feature). Missing: ${emptyOthers.join(', ')}.`;
+    err.classList.add('show'); return;
+  }
   const invalidOthers = otherFields.filter(f => {
     const pid = FIXED_F.includes(f) ? 'fixedFields' : 'compFields';
     const inp = document.getElementById(`inp_${pid}_${f.replace(/\s+/g,'_')}`);
-    if (!inp || inp.value.trim() === '') return false; // empty = ok, will use median
     const v = parseFloat(inp.value);
     const b = BOUNDS[f];
     return isNaN(v) || v < b[0] || v > b[1];
   });
   if (invalidOthers.length > 0) {
-    err.textContent = `⚠ Out-of-range value in: ${invalidOthers.join(', ')}. Fix or clear the field to use median.`;
+    err.textContent = `⚠ Out-of-range value in: ${invalidOthers.join(', ')}. Please fix before running sensitivity analysis.`;
     err.classList.add('show'); return;
   }
 
-  // Build base inputs — use input value if filled, else use MEDIAN
+  // Build base inputs — use actual field values only (no median fallback)
   const baseInputs = {};
   ALL_F.forEach(f => {
     if (f === feat) { baseInputs[f] = start; return; }
     const pid = FIXED_F.includes(f) ? 'fixedFields' : 'compFields';
-    const v = getVal(pid, f);
-    baseInputs[f] = (v !== null && !isNaN(v)) ? v : MEDIANS[f];
+    baseInputs[f] = getVal(pid, f);
   });
 
   // Build sweep rows
