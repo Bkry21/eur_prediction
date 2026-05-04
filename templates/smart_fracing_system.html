@@ -442,24 +442,38 @@ tbody td {
   display: flex; align-items: center; gap: 8px;
 }
 .modal-section-title::after { content:''; flex:1; height:1px; background:var(--border); }
-.dev-cards { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+.dev-cards { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 20px; }
 .dev-card {
   background: var(--surface2);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 16px;
-  flex: 1; min-width: 140px;
+  border-radius: 12px;
+  padding: 18px 16px;
+  flex: 1; min-width: 160px;
   text-align: center;
+  transition: border-color .2s, transform .2s;
 }
+.dev-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.dev-card a { text-decoration: none; display: block; }
 .dev-card .dev-avatar {
-  width: 40px; height: 40px; border-radius: 50%;
+  width: 72px; height: 72px; border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
   display: grid; place-items: center;
-  font-size: 1.1rem; margin: 0 auto 8px;
+  font-size: 1.8rem; margin: 0 auto 10px;
+  overflow: hidden;
+  border: 2px solid rgba(0,200,160,.3);
+}
+.dev-card .dev-avatar img {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
 }
 .dev-card .dev-name {
   font-family: 'Rajdhani', sans-serif;
-  font-size: .9rem; font-weight: 700; color: var(--txt);
+  font-size: 1rem; font-weight: 700; color: var(--txt);
+  margin-bottom: 4px;
+}
+.dev-card .dev-role {
+  font-size: .7rem; color: var(--accent2);
+  font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: .04em;
 }
 .ded-card {
   background: linear-gradient(135deg, rgba(0,200,160,.08), rgba(0,133,255,.08));
@@ -505,6 +519,7 @@ tbody td {
 }
 #sensChart { width: 100% !important; }
 </style>
+
 </head>
 <body>
 <div class="page">
@@ -670,9 +685,27 @@ tbody td {
 
     <div class="modal-section-title">Developers</div>
     <div class="dev-cards">
-      <div class="dev-card"><div class="dev-avatar">PET.engineer</div><div class="dev-name">MOAID NADIR</div></div>
-      <div class="dev-card"><div class="dev-avatar">PET.engineer</div><div class="dev-name">MOHAMED MAHJOUB</div></div>
-      <div class="dev-card"><div class="dev-avatar">PET.engineer</div><div class="dev-name">ABU-BAKR MOHAMED</div></div>
+      <div class="dev-card">
+        <a href="https://linkedin.com/in/placeholder-moaid" target="_blank" rel="noopener">
+          <div class="dev-avatar"><img src="https://ui-avatars.com/api/?name=Moaid+Nadir&background=00c8a0&color=fff&size=128" alt="MOAID NADIR"></div>
+          <div class="dev-name">MOAID NADIR</div>
+          <div class="dev-role">🔗 LinkedIn</div>
+        </a>
+      </div>
+      <div class="dev-card">
+        <a href="https://linkedin.com/in/placeholder-mahjoub" target="_blank" rel="noopener">
+          <div class="dev-avatar"><img src="https://ui-avatars.com/api/?name=Mohamed+Mahjoub&background=0085ff&color=fff&size=128" alt="MOHAMED MAHJOUB"></div>
+          <div class="dev-name">MOHAMED MAHJOUB</div>
+          <div class="dev-role">🔗 LinkedIn</div>
+        </a>
+      </div>
+      <div class="dev-card">
+        <a href="https://linkedin.com/in/placeholder-abubakr" target="_blank" rel="noopener">
+          <div class="dev-avatar"><img src="https://ui-avatars.com/api/?name=Abu-Bakr+Mohamed&background=7c3aed&color=fff&size=128" alt="ABU-BAKR MOHAMED"></div>
+          <div class="dev-name">ABU-BAKR MOHAMED</div>
+          <div class="dev-role">🔗 LinkedIn</div>
+        </a>
+      </div>
     </div>
 
     <div class="modal-section-title">Acknowledgements</div>
@@ -904,7 +937,7 @@ async function doSens() {
   const feat  = document.getElementById('sensFeatureSingle').value;
   const start = parseFloat(document.getElementById('sensStartSingle').value);
   const stop  = parseFloat(document.getElementById('sensStopSingle').value);
-  const nPts  = Math.min(parseInt(document.getElementById('sensNSingle').value) || 10, 30);
+  const nPts  = Math.max(2, parseInt(document.getElementById('sensNSingle').value) || 10); // no max cap
 
   // Validate: feature must be selected
   if (!feat) {
@@ -932,20 +965,29 @@ async function doSens() {
     err.classList.add('show'); return;
   }
 
-  // Check all prediction inputs are filled
-  if (!allFilled('fixedFields', FIXED_F) || !allFilled('compFields', OPT_F)) {
-    err.textContent = '⚠ All well parameter fields above must be filled before sensitivity analysis.';
-    err.classList.add('show'); return;
-  }
-  if (!allValid('fixedFields', FIXED_F) || !allValid('compFields', OPT_F)) {
-    err.textContent = '⚠ Fix out-of-range fields above before running sensitivity analysis.';
+  // Validate only non-swept fields: if filled they must be in range; if empty we use median
+  const otherFields = ALL_F.filter(f => f !== feat);
+  const invalidOthers = otherFields.filter(f => {
+    const pid = FIXED_F.includes(f) ? 'fixedFields' : 'compFields';
+    const inp = document.getElementById(`inp_${pid}_${f.replace(/\s+/g,'_')}`);
+    if (!inp || inp.value.trim() === '') return false; // empty = ok, will use median
+    const v = parseFloat(inp.value);
+    const b = BOUNDS[f];
+    return isNaN(v) || v < b[0] || v > b[1];
+  });
+  if (invalidOthers.length > 0) {
+    err.textContent = `⚠ Out-of-range value in: ${invalidOthers.join(', ')}. Fix or clear the field to use median.`;
     err.classList.add('show'); return;
   }
 
-  // Build base inputs
+  // Build base inputs — use input value if filled, else use MEDIAN
   const baseInputs = {};
-  FIXED_F.forEach(f => { baseInputs[f] = getVal('fixedFields', f); });
-  OPT_F.forEach(f   => { baseInputs[f] = getVal('compFields', f); });
+  ALL_F.forEach(f => {
+    if (f === feat) { baseInputs[f] = start; return; }
+    const pid = FIXED_F.includes(f) ? 'fixedFields' : 'compFields';
+    const v = getVal(pid, f);
+    baseInputs[f] = (v !== null && !isNaN(v)) ? v : MEDIANS[f];
+  });
 
   // Build sweep rows
   const rows = [];
@@ -1093,38 +1135,44 @@ async function doBatch() {
     const isXLSX = file.name.match(/\.xlsx?$/i);
     let rows = [];
 
+    // Normalize column names: case-insensitive fuzzy match to known feature names
+    const KNOWN = [...ALL_F];
+    function matchCol(raw) {
+      const r = raw.trim().toLowerCase().replace(/[_\-\.]+/g, ' ');
+      return KNOWN.find(k => k.toLowerCase().replace(/[_\-\.]+/g, ' ') === r) || null;
+    }
+
+    function buildRow(rawObj) {
+      const row = {};
+      for (const rawKey of Object.keys(rawObj)) {
+        const matched = matchCol(rawKey);
+        if (matched) row[matched] = +rawObj[rawKey];
+      }
+      ALL_F.forEach(f => { if (row[f] === undefined || isNaN(row[f])) row[f] = MEDIANS[f]; });
+      return row;
+    }
+
     if (isXLSX) {
-      // Parse XLSX using SheetJS
       const ab = await file.arrayBuffer();
       const wb = XLSX.read(ab, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      for (const rowData of data) {
-        const row = {};
-        for (const h of Object.keys(rowData)) {
-          const key = h.trim();
-          if (BOUNDS[key] !== undefined) row[key] = +rowData[h];
-        }
-        ALL_F.forEach(f => { if (row[f] === undefined || isNaN(row[f])) row[f] = MEDIANS[f]; });
-        rows.push(row);
-      }
+      rows = data.map(buildRow);
     } else {
-      // Parse CSV
       const text = await file.text();
       const lines = text.trim().split('\n');
       const headers = lines[0].split(',').map(h => h.trim());
       for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
         const vals = lines[i].split(',');
-        const row = {};
-        headers.forEach((h, j) => { if (BOUNDS[h] !== undefined) row[h] = +vals[j]; });
-        ALL_F.forEach(f => { if (row[f] === undefined) row[f] = MEDIANS[f]; });
-        rows.push(row);
+        const rawObj = {};
+        headers.forEach((h, j) => { rawObj[h] = vals[j]; });
+        rows.push(buildRow(rawObj));
       }
     }
 
     if (rows.length === 0) {
-      throw new Error('No valid rows found in file. Check column names match exactly.');
+      throw new Error('No valid rows found in file. Check column names match the required features.');
     }
     pb.style.width = '40%';
     const out = await apiPost('/predict_batch', { rows });
@@ -1190,8 +1238,12 @@ async function doOpt() {
   const fixed = {};
   FIXED_F.forEach(f => { fixed[f] = getVal('optFields', f); });
 
+  // Only send bounds for OPT_F (completion params), not geological fixed params
+  const optBounds = {};
+  OPT_F.forEach(f => { optBounds[f] = BOUNDS[f]; });
+
   btn.disabled = true; btn.innerHTML = '<span class="spin" style="border-top-color:#000"></span> Optimizing…';
-  
+
   // Show timeout warning after 8 seconds
   const warnTimer = setTimeout(() => {
     err.textContent = '⏳ Optimization is running on the server, this may take 20–40 seconds on Render free tier…';
@@ -1202,7 +1254,7 @@ async function doOpt() {
   }, 8000);
 
   try {
-    const out = await apiPost('/optimize', { fixed, bounds: BOUNDS, method: optM });
+    const out = await apiPost('/optimize', { fixed, bounds: optBounds, method: optM });
     clearTimeout(warnTimer);
     err.className = 'err';
     showOpt(fixed, out.optimized, out.best_eur, out.method || optM, out.success);
