@@ -711,7 +711,7 @@ tbody td {
 
     <div class="modal-section-title">Acknowledgements</div>
     <div class="ded-card">
-      🎓 Special thanks and deep appreciation to <strong>Dr. OSAMA MUTRIF</strong> — for guidance, mentorship, and inspiration throughout the development of this project. Your dedication to teaching and excellence made this work possible.
+      🎓 Special thanks and deep appreciation to <strong>Dr. OSAM</strong> — for guidance, mentorship, and inspiration throughout the development of this project. Your dedication to teaching and excellence made this work possible.
     </div>
 
     <div class="modal-section-title">Source Code & Data</div>
@@ -847,8 +847,8 @@ OPT_F.forEach(f => {
     `<tr><td>${f}</td><td>${lo}</td><td>${hi}</td><td>${UNITS[f]||''}</td></tr>`;
 });
 
-// Build sensitivity feature dropdown
-ALL_F.forEach(f => {
+// Build sensitivity feature dropdown — sorted alphabetically
+[...ALL_F].sort((a,b) => a.localeCompare(b)).forEach(f => {
   const o = document.createElement('option');
   o.value = f; o.textContent = lu(f);
   document.getElementById('sensFeatureSingle').appendChild(o);
@@ -919,7 +919,7 @@ async function doPred() {
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Predicting…';
   try {
     const out = await apiPost('/predict', inputs);
-    document.getElementById('eurVal').innerHTML = `${(+out.predicted_eur).toFixed(3)}<span class="unit">bcf</span>`;
+    document.getElementById('eurVal').innerHTML = `${(+out.predicted_eur).toFixed(4)}<span class="unit">bcf</span>`;
     res.classList.add('show');
   } catch(e) {
     err.textContent = '⚠ ' + e.message; err.classList.add('show');
@@ -1265,7 +1265,7 @@ async function doOpt() {
     const out = await apiPost('/optimize', { fixed, bounds: optBounds, method: optM });
     clearTimeout(warnTimer);
     err.className = 'err';
-    showOpt(fixed, out.optimized, out.best_eur, out.method || optM, out.success);
+    showOpt(fixed, out.optimized, out.best_eur, out.method || optM, out.success, out.n_evals);
     res.classList.add('show');
   } catch(e) {
     clearTimeout(warnTimer);
@@ -1275,7 +1275,7 @@ async function doOpt() {
   }
 }
 
-function showOpt(fixed, opt, eur, method, ok) {
+function showOpt(fixed, opt, eur, method, ok, nEvals) {
   let h = '';
   FIXED_F.forEach(f => {
     h += `<tr class="row-fixed"><td>${f}</td><td>${(+fixed[f]).toFixed(DEC[f]||2)}</td><td>${UNITS[f]||''}</td><td>Fixed</td></tr>`;
@@ -1284,9 +1284,9 @@ function showOpt(fixed, opt, eur, method, ok) {
     const v = opt ? opt[f] : '—';
     h += `<tr class="row-opt"><td>${f}</td><td>${v!==undefined?(+v).toFixed(DEC[f]||2):'—'}</td><td>${UNITS[f]||''}</td><td>Optimized</td></tr>`;
   });
-  h += `<tr class="row-out"><td>Predicted EUR</td><td>${(+eur).toFixed(3)}</td><td>bcf</td><td>Output</td></tr>`;
+  h += `<tr class="row-out"><td>Predicted EUR</td><td>${(+eur).toFixed(4)}</td><td>bcf</td><td>Output</td></tr>`;
   document.getElementById('optBody').innerHTML = h;
-  document.getElementById('optResultTitle').textContent = `Results — ${method||optM} — ${ok?'✓ Converged':'⚠ Check'}`;
+  document.getElementById('optResultTitle').textContent = `Results — ${method||optM} — ${ok?'✓ Converged':'⚠ Not fully converged'}${nEvals?' | '+nEvals+' evals':''}`;
 }
 
 // ─── XLSX Download (using SheetJS) ───────────────────────────────────────────
