@@ -183,7 +183,12 @@ def optimize():
         from scipy.optimize import minimize, differential_evolution
 
         data   = request.get_json(force=True)
-        fixed  = data.get('fixed', {})   # original-unit fixed values
+        # Cast every incoming fixed value to float to avoid JSON string/int mismatches
+        fixed  = {k: float(v) for k, v in data.get('fixed', {}).items()}
+        # Fill any missing fixed features with DEFAULT_VALUES (exact df[col].mean())
+        for f in FIXED_ORIGINAL_FEATURES:
+            if f not in fixed:
+                fixed[f] = DEFAULT_VALUES[f]
         method = data.get('method', 'SLSQP')
 
         # OPT_BOUNDS as list of tuples — matches [FEATURE_BOUNDS[col] for col in OPTIMIZED_ORIGINAL_FEATURES]
