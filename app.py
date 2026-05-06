@@ -1,14 +1,13 @@
 """
-Smart Fracing System — Flask API
-SLSQP matches Cell 29-31 in smart_system.ipynb EXACTLY:
-  - Optimizer runs in TRANSFORMED space (log_Lateral, log_Proppant, QT_Percentage_of_LG)
-  - x0 = X_all[completion_features].mean() in transformed space
-  - bounds = X_all[completion_features].min/max() in transformed space
-  - 1 + 12 random starts, seed=42, rng.uniform(lb, ub) — same as make_starts(n_random=12)
-  - maxiter=2000, ftol=1e-9
-  - Result is inverse-transformed back to original units for display
-DE matches Cell 34:
-  - strategy='best1bin', maxiter=800, popsize=25, init='sobol', polish=True
+Smart Fracing System — Flask API v_FINAL
+
+/optimize matches Cell 41 (Widget) in smart_system.ipynb EXACTLY:
+  - Runs in ORIGINAL units space (NOT transformed)
+  - OPTIMIZED_ORIGINAL_FEATURES = ['Stage Spacing','Lateral Length','Injection Rate','Percentage of LG','Proppant Loading']
+  - OPT_BOUNDS = FEATURE_BOUNDS from data min/max in original units
+  - x0 = DEFAULT_VALUES = df[col].mean() in original units
+  - SLSQP: 1 + 8 random starts, rng.uniform per-feature, seed=42, maxiter=1500, ftol=1e-9
+  - DE: strategy='best1bin', maxiter=300, popsize=20, tol=1e-3, polish=True, seed=42
 """
 
 from flask import Flask, request, jsonify, render_template, send_from_directory
@@ -35,7 +34,7 @@ print("Loading Quantile Transformer...")
 qt = joblib.load(os.path.join(BASE_DIR, 'quantile_transformer.pkl'))
 print("Models loaded!")
 
-# ── Exact feature order from x_train.columns ─────────────────────────────────
+# ── Feature order from x_train.columns ───────────────────────────────────────
 MODEL_FEATURES = [
     'Stage Spacing', 'Well Spacing', 'Thickness', 'Injection Rate',
     'Water Saturation', 'Pressure Gradient',
@@ -49,62 +48,47 @@ ORIGINAL_INPUT_FEATURES = [
     'Lateral Length', 'ISIP', 'Porosity', 'Percentage of LG',
 ]
 
-# Completion features in TRANSFORMED space — matches Cell 29 completion_features
-COMPLETION_FEATURES_TRANSFORMED = [
-    'Stage Spacing',         # unchanged
-    'log_Lateral',           # log1p(Lateral Length)
-    'Injection Rate',        # unchanged
-    'QT_Percentage_of_LG',  # qt.transform col 1
-    'log_Proppant',          # log1p(Proppant Loading)
+# Matches OPTIMIZED_ORIGINAL_FEATURES in Cell 38
+OPTIMIZED_ORIGINAL_FEATURES = [
+    'Stage Spacing', 'Lateral Length', 'Injection Rate',
+    'Percentage of LG', 'Proppant Loading',
 ]
 
-# Fixed features in TRANSFORMED space — matches Cell 29 fixed_scenario_features
-FIXED_FEATURES_TRANSFORMED = [
-    'Well Spacing',      # unchanged
-    'Thickness',         # unchanged
-    'QT_Porosity',       # qt.transform col 0
-    'log_ISIP',          # log1p(ISIP)
-    'Water Saturation',  # unchanged
-    'Pressure Gradient', # unchanged
+# Matches FIXED_ORIGINAL_FEATURES in Cell 38
+FIXED_ORIGINAL_FEATURES = [
+    'Well Spacing', 'Thickness', 'Porosity', 'ISIP',
+    'Water Saturation', 'Pressure Gradient',
 ]
 
-# ── Transformed-space bounds from X_all[completion_features].min/max() ────────
-# Computed from EUR_dataset.csv (506 rows) + transforms
-TRANSFORMED_BOUNDS = {
-    'Stage Spacing':        (140.0,      330.0),
-    'log_Lateral':          (8.412055,   9.350189),   # log1p([4500, 11500])
-    'Injection Rate':       (55.0,       80.0),
-    'QT_Percentage_of_LG': None,   # computed at runtime from qt
-    'log_Proppant':         (7.003974,   8.071219),   # log1p([1100, 3200])
+# ── DEFAULT_VALUES = df[col].mean() — exact from EUR_dataset.csv (506 rows) ──
+# Matches DEFAULT_VALUES in Cell 38
+DEFAULT_VALUES = {
+    'Stage Spacing':     147.640316,
+    'Well Spacing':      820.158103,
+    'Thickness':         162.365613,
+    'Injection Rate':    63.079051,
+    'Water Saturation':  19.213439,
+    'Pressure Gradient': 0.930257,
+    'Proppant Loading':  2567.065217,
+    'Lateral Length':    8153.086957,
+    'ISIP':              7010.490119,
+    'Porosity':          7.337549,
+    'Percentage of LG':  64.845455,
 }
 
-# ── Transformed-space means from X_all[completion_features].mean() ────────────
-# These are the exact x0 used by make_starts() in Cell 29
-TRANSFORMED_MEANS = {
-    'Stage Spacing':        147.640316,
-    'log_Lateral':          8.999594,    # mean of log1p(Lateral Length)
-    'Injection Rate':       63.079051,
-    'QT_Percentage_of_LG': None,         # computed at runtime from qt
-    'log_Proppant':         7.835841,    # mean of log1p(Proppant Loading)
+# ── OPT_BOUNDS = FEATURE_BOUNDS from data min/max in original units ───────────
+# Matches OPT_BOUNDS = [FEATURE_BOUNDS[col] for col in OPTIMIZED_ORIGINAL_FEATURES]
+OPT_BOUNDS = {
+    'Stage Spacing':     (140.0,   330.0),
+    'Lateral Length':    (4500.0,  11500.0),
+    'Injection Rate':    (55.0,    80.0),
+    'Percentage of LG':  (15.0,    95.0),
+    'Proppant Loading':  (1100.0,  3200.0),
 }
 
-def get_qt_pct_lg_bounds_and_mean():
-    """Compute QT_Percentage_of_LG bounds/mean by transforming Pct LG data range."""
-    # Transform the min and max of Percentage of LG through the qt
-    pct_min = qt.transform([[7.337549, 15.0]])[0, 1]   # min Pct LG = 15
-    pct_max = qt.transform([[7.337549, 95.0]])[0, 1]   # max Pct LG = 95
-    pct_mean = qt.transform([[7.337549, 64.845455]])[0, 1]  # mean Pct LG
-    return float(min(pct_min, pct_max)), float(max(pct_min, pct_max)), float(pct_mean)
-
-# Precompute at startup
-_qt_pct_lb, _qt_pct_ub, _qt_pct_mean = get_qt_pct_lg_bounds_and_mean()
-TRANSFORMED_BOUNDS['QT_Percentage_of_LG'] = (_qt_pct_lb, _qt_pct_ub)
-TRANSFORMED_MEANS['QT_Percentage_of_LG']  = _qt_pct_mean
-print(f"QT_Percentage_of_LG bounds: [{_qt_pct_lb:.6f}, {_qt_pct_ub:.6f}], mean: {_qt_pct_mean:.6f}")
-
-# ── Core transform: original → model input ────────────────────────────────────
+# ── Core transform: matches original_to_model_input() in Cell 38 ─────────────
 def original_to_model_input(params):
-    """Matches original_to_model_input() in notebook Cell 38."""
+    """Convert original-unit dict to model input DataFrame."""
     porosity = float(params['Porosity'])
     pct_lg   = float(params['Percentage of LG'])
     qt_vals  = qt.transform([[porosity, pct_lg]])
@@ -124,49 +108,8 @@ def original_to_model_input(params):
     return pd.DataFrame([row], columns=MODEL_FEATURES)
 
 def predict_eur(params):
+    """Matches predict_eur_from_original() in Cell 38."""
     return float(model.predict(original_to_model_input(params))[0])
-
-# ── Transformed-space predict (used by SLSQP/DE optimizer) ────────────────────
-def make_input_row_transformed(x_transformed, fixed_transformed):
-    """
-    Matches make_input_row() in Cell 29 — builds model input from:
-      x_transformed: array of completion feature values in TRANSFORMED space
-      fixed_transformed: dict of fixed feature values in TRANSFORMED space
-    """
-    row = {}
-    row.update(fixed_transformed)
-    row.update({k: float(v) for k, v in zip(COMPLETION_FEATURES_TRANSFORMED, x_transformed)})
-    return pd.DataFrame([row], columns=MODEL_FEATURES)
-
-def predict_eur_transformed(x_transformed, fixed_transformed):
-    """Matches predict_eur() in Cell 29."""
-    df_row = make_input_row_transformed(x_transformed, fixed_transformed)
-    return float(model.predict(df_row)[0])
-
-def inverse_transform_result(x_opt, qt_porosity_val):
-    """
-    Inverse-transforms the optimizer result back to original units.
-    Matches Cell 32/35 inverse transform logic exactly.
-    qt_porosity_val: the actual QT_Porosity from fixed_transformed
-    """
-    result = {}
-    qt_pct_lg_val = None
-    for i, feat in enumerate(COMPLETION_FEATURES_TRANSFORMED):
-        val = float(x_opt[i])
-        if feat == 'log_Lateral':
-            result['Lateral Length'] = np.expm1(val)
-        elif feat == 'log_Proppant':
-            result['Proppant Loading'] = np.expm1(val)
-        elif feat == 'QT_Percentage_of_LG':
-            qt_pct_lg_val = val
-        else:
-            result[feat] = val   # Stage Spacing, Injection Rate unchanged
-    # Inverse transform QT features together — matches notebook Cell 32
-    # qt.inverse_transform([[QT_Porosity, QT_Percentage_of_LG]])
-    if qt_pct_lg_val is not None:
-        inv = qt.inverse_transform([[qt_porosity_val, qt_pct_lg_val]])
-        result['Percentage of LG'] = float(inv[0, 1])
-    return result
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.route('/health', methods=['GET'])
@@ -175,19 +118,14 @@ def health():
 
 @app.route('/debug', methods=['GET'])
 def debug():
-    test_params = {
+    test = {
         'Stage Spacing': 200, 'Well Spacing': 1000, 'Thickness': 150,
         'Injection Rate': 65, 'Water Saturation': 20.0, 'Pressure Gradient': 0.85,
         'Proppant Loading': 2000, 'Lateral Length': 8000, 'ISIP': 6500,
         'Porosity': 7.0, 'Percentage of LG': 50.0
     }
     try:
-        eur = predict_eur(test_params)
-        return jsonify({
-            'test_predicted_eur': round(eur, 6),
-            'transformed_bounds': TRANSFORMED_BOUNDS,
-            'transformed_means': TRANSFORMED_MEANS,
-        })
+        return jsonify({'test_predicted_eur': round(predict_eur(test), 6)})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -202,8 +140,7 @@ def predict():
         missing = [k for k in ORIGINAL_INPUT_FEATURES if k not in data]
         if missing:
             return jsonify({'error': f'Missing features: {missing}'}), 400
-        eur = predict_eur(data)
-        return jsonify({'predicted_eur': round(eur, 6)})
+        return jsonify({'predicted_eur': round(predict_eur(data), 6)})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -219,9 +156,8 @@ def predict_batch():
             missing = [k for k in ORIGINAL_INPUT_FEATURES if k not in row]
             if missing:
                 return jsonify({'error': f'Missing fields in row: {missing}'}), 400
-            eur = predict_eur(row)
             result = {k: row[k] for k in ORIGINAL_INPUT_FEATURES}
-            result['Predicted_EUR'] = round(eur, 6)
+            result['Predicted_EUR'] = round(predict_eur(row), 6)
             results.append(result)
         return jsonify({'results': results})
     except Exception as e:
@@ -230,110 +166,99 @@ def predict_batch():
 @app.route('/optimize', methods=['POST'])
 def optimize():
     """
-    Runs optimizer in TRANSFORMED space — matches Cell 29-31 (SLSQP) and Cell 34 (DE).
+    Matches Cell 41 (Widget) run_optimizer() EXACTLY.
+    Runs in ORIGINAL units space.
 
-    Fixed features are transformed to model space:
-      QT_Porosity = qt.transform([[Porosity, mean_PctLG]])[0,0]  — only Porosity matters
-      log_ISIP    = log1p(ISIP)
-      others      = unchanged
+    SLSQP:
+      x0 = DEFAULT_VALUES for OPTIMIZED_ORIGINAL_FEATURES
+      starts = [x0] + 8 random (rng.uniform per-feature, seed=42)
+      maxiter=1500, ftol=1e-9
 
-    Completion features are optimized in transformed space:
-      Stage Spacing, Injection Rate — unchanged
-      log_Lateral     bounds/means in log space
-      log_Proppant    bounds/means in log space
-      QT_Percentage_of_LG  bounds/means in QT space
-
-    Result is inverse-transformed back to original units.
+    DE:
+      strategy='best1bin', maxiter=300, popsize=20,
+      tol=1e-3, atol=1e-6, mutation=(0.5,1.0), recombination=0.7,
+      seed=42, polish=True
     """
     try:
         from scipy.optimize import minimize, differential_evolution
 
         data   = request.get_json(force=True)
-        fixed  = data.get('fixed', {})   # original-unit fixed values from HTML
+        fixed  = data.get('fixed', {})   # original-unit fixed values
         method = data.get('method', 'SLSQP')
 
-        # ── Build fixed_transformed dict (matches scenario_fixed_values in Cell 29) ──
-        porosity_val = float(fixed['Porosity'])
-        # For QT_Porosity we need both Porosity and Pct LG, but Pct LG is being optimized.
-        # Use mean Pct LG as placeholder — same as X_all["QT_Porosity"].mean() logic
-        qt_fixed = qt.transform([[porosity_val, 64.845455]])  # 64.845455 = mean Pct LG
-        qt_porosity = float(qt_fixed[0, 0])
+        # OPT_BOUNDS as list of tuples — matches [FEATURE_BOUNDS[col] for col in OPTIMIZED_ORIGINAL_FEATURES]
+        opt_bounds_list = [OPT_BOUNDS[f] for f in OPTIMIZED_ORIGINAL_FEATURES]
+        lo = np.array([b[0] for b in opt_bounds_list])
+        hi = np.array([b[1] for b in opt_bounds_list])
 
-        fixed_transformed = {
-            'Well Spacing':      float(fixed['Well Spacing']),
-            'Thickness':         float(fixed['Thickness']),
-            'QT_Porosity':       qt_porosity,
-            'log_ISIP':          np.log1p(float(fixed['ISIP'])),
-            'Water Saturation':  float(fixed['Water Saturation']),
-            'Pressure Gradient': float(fixed['Pressure Gradient']),
-        }
-
-        # ── Transformed-space bounds (matches bounds_list in Cell 29) ─────────────
-        lb = np.array([TRANSFORMED_BOUNDS[f][0] for f in COMPLETION_FEATURES_TRANSFORMED])
-        ub = np.array([TRANSFORMED_BOUNDS[f][1] for f in COMPLETION_FEATURES_TRANSFORMED])
-        scipy_bounds = list(zip(lb.tolist(), ub.tolist()))
-
-        def objective_min(x):
-            """Matches objective_min() in Cell 29."""
-            return -predict_eur_transformed(x, fixed_transformed)
+        def objective_original(x_original_opt):
+            """Matches objective_original() in Cell 41."""
+            params = dict(fixed)
+            params.update({k: float(v) for k, v in zip(OPTIMIZED_ORIGINAL_FEATURES, x_original_opt)})
+            return -predict_eur(params)
 
         if method == 'DE':
-            # ── Exact Cell 34 DE settings ─────────────────────────────────────────
+            # ── Exact Cell 41 DE ──────────────────────────────────────────────
             res = differential_evolution(
-                objective_min,
-                scipy_bounds,
+                objective_original,
+                opt_bounds_list,
                 strategy='best1bin',
-                maxiter=800,
-                popsize=25,
+                maxiter=300,
+                popsize=20,
                 tol=1e-3,
                 atol=1e-6,
                 mutation=(0.5, 1.0),
                 recombination=0.7,
                 seed=42,
-                init='sobol',
                 polish=True,
                 workers=1,
             )
 
         else:
-            # ── Exact Cell 31 SLSQP settings ──────────────────────────────────────
-            # x0 = X_all[completion_features].mean() in TRANSFORMED space
-            x0 = np.array([TRANSFORMED_MEANS[f] for f in COMPLETION_FEATURES_TRANSFORMED])
+            # ── Exact Cell 41 SLSQP ───────────────────────────────────────────
+            # x0 = DEFAULT_VALUES for OPTIMIZED_ORIGINAL_FEATURES
+            x0 = np.array([DEFAULT_VALUES[f] for f in OPTIMIZED_ORIGINAL_FEATURES], dtype=float)
 
-            # make_starts(n_random=12, seed=42): rng.uniform(lb, ub) per-feature
+            # starts = [x0] + 8 random — rng.uniform per-feature, seed=42
             rng = np.random.default_rng(42)
             starts = [x0]
-            for _ in range(12):
-                starts.append(rng.uniform(lb, ub))
+            for _ in range(8):
+                starts.append(np.array([
+                    rng.uniform(low=OPT_BOUNDS[f][0], high=OPT_BOUNDS[f][1])
+                    for f in OPTIMIZED_ORIGINAL_FEATURES
+                ], dtype=float))
 
             best_res, best_fun = None, np.inf
             for start in starts:
-                try:
-                    r = minimize(
-                        objective_min, start,
-                        method='SLSQP',
-                        bounds=scipy_bounds,
-                        options={'maxiter': 2000, 'ftol': 1e-9, 'disp': False}
-                    )
-                    if r.fun is not None and not np.isnan(r.fun) and r.fun < best_fun:
-                        best_fun = r.fun
-                        best_res = r
-                except Exception:
-                    pass
+                res = minimize(
+                    objective_original,
+                    x0=start,
+                    method='SLSQP',
+                    bounds=opt_bounds_list,
+                    options={'maxiter': 1500, 'ftol': 1e-9, 'disp': False}
+                )
+                if res.fun < best_fun:
+                    best_fun = res.fun
+                    best_res = res
             res = best_res
 
         if res is None:
             return jsonify({'error': 'Optimization failed'}), 500
 
-        # ── Inverse-transform result to original units ────────────────────────────
-        optimized_original = inverse_transform_result(res.x, fixed_transformed['QT_Porosity'])
-        best_eur = -float(res.fun)
+        # Build optimized dict in original units
+        optimized = {
+            k: float(res.x[i])
+            for i, k in enumerate(OPTIMIZED_ORIGINAL_FEATURES)
+        }
+
+        # Final EUR prediction with exact optimized values
+        best_eur = predict_eur({**fixed, **optimized})
 
         return jsonify({
             'success':   bool(res.success),
             'method':    method,
             'best_eur':  round(best_eur, 6),
-            'optimized': {k: round(float(v), 4) for k, v in optimized_original.items()},
+            'optimized': {k: round(v, 4) for k, v in optimized.items()},
             'n_evals':   int(res.nfev) if hasattr(res, 'nfev') else None,
         })
     except Exception as e:
