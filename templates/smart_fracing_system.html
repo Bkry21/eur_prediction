@@ -711,7 +711,7 @@ tbody td {
 
     <div class="modal-section-title">Acknowledgements</div>
     <div class="ded-card">
-      🎓 Special thanks and deep appreciation to <strong>Dr. OSAM</strong> — for guidance, mentorship, and inspiration throughout the development of this project. Your dedication to teaching and excellence made this work possible.
+      🎓 Special thanks and deep appreciation to <strong>Dr. OSAMA MUTRIF</strong> — for guidance, mentorship, and inspiration throughout the development of this project. Your dedication to teaching and excellence made this work possible.
     </div>
 
     <div class="modal-section-title">Source Code & Data</div>
@@ -835,13 +835,13 @@ function collectInputs(pid, fields) {
   return obj;
 }
 
-// Build fields
-FIXED_F.forEach(f => mkField(f, 'fixedFields'));
-OPT_F.forEach(f   => mkField(f, 'compFields'));
-FIXED_F.forEach(f => mkField(f, 'optFields'));
+// Build fields — sorted alphabetically in all sections
+[...FIXED_F].sort((a,b) => a.localeCompare(b)).forEach(f => mkField(f, 'fixedFields'));
+[...OPT_F].sort((a,b)   => a.localeCompare(b)).forEach(f => mkField(f, 'compFields'));
+[...FIXED_F].sort((a,b) => a.localeCompare(b)).forEach(f => mkField(f, 'optFields'));
 
-// Build bounds table
-OPT_F.forEach(f => {
+// Build bounds table — sorted alphabetically
+[...OPT_F].sort((a,b) => a.localeCompare(b)).forEach(f => {
   const [lo, hi] = BOUNDS[f];
   document.getElementById('boundsBody').innerHTML +=
     `<tr><td>${f}</td><td>${lo}</td><td>${hi}</td><td>${UNITS[f]||''}</td></tr>`;
@@ -1254,7 +1254,7 @@ async function doOpt() {
 
   // Show timeout warning after 8 seconds
   const warnTimer = setTimeout(() => {
-    err.textContent = '⏳ Optimization is running on the server, this may take 20–40 seconds on Render free tier…';
+    err.textContent = '⏳ Optimization is running on the server, this may take time…';
     err.classList.add('show');
     err.style.background = 'rgba(245,166,35,.08)';
     err.style.color = 'var(--warn)';
