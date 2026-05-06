@@ -1,10 +1,11 @@
 """
 Smart Fracing System — Flask API
-Pipeline matches smart_system.ipynb exactly:
-  - Log transform : np.log1p()  (NOT np.log)
-  - QT transform  : qt.transform([[Porosity, Percentage_of_LG]])
-  - Model input   : DataFrame with named columns in training order
-  - Optimizer     : works in original-unit space, transforms inside objective
+Matches smart_system.ipynb EXACTLY:
+  - log1p transforms
+  - DataFrame with named columns in training order
+  - DATA_MEANS = exact df[col].mean() from EUR_dataset.csv (506 rows)
+  - SLSQP: x0=DATA_MEANS + 8 random starts (seed=42, per-feature uniform), maxiter=1500, ftol=1e-9
+  - DE: strategy='best1bin', maxiter=300, popsize=20, tol=1e-3, polish=True, seed=42
 """
 
 from flask import Flask, request, jsonify, render_template, send_from_directory
@@ -29,8 +30,9 @@ print("Loading ANN model...")
 model = joblib.load(os.path.join(BASE_DIR, 'ANN_model.pkl'))
 print("Loading Quantile Transformer...")
 qt = joblib.load(os.path.join(BASE_DIR, 'quantile_transformer.pkl'))
-print("Models loaded successfully!")
+print("Models loaded!")
 
+# ── Exact feature order from x_train.columns ─────────────────────────────────
 MODEL_FEATURES = [
     'Stage Spacing', 'Well Spacing', 'Thickness', 'Injection Rate',
     'Water Saturation', 'Pressure Gradient',
@@ -44,6 +46,32 @@ ORIGINAL_INPUT_FEATURES = [
     'Lateral Length', 'ISIP', 'Porosity', 'Percentage of LG',
 ]
 
+OPTIMIZED_ORIGINAL_FEATURES = [
+    'Stage Spacing', 'Lateral Length', 'Injection Rate',
+    'Percentage of LG', 'Proppant Loading',
+]
+
+FIXED_ORIGINAL_FEATURES = [
+    'Well Spacing', 'Thickness', 'Porosity', 'ISIP',
+    'Water Saturation', 'Pressure Gradient',
+]
+
+# ── EXACT data means from EUR_dataset.csv (506 rows) — matches DEFAULT_VALUES ─
+DATA_MEANS = {
+    'Stage Spacing':     147.640316,
+    'Well Spacing':      820.158103,
+    'Thickness':         162.365613,
+    'Injection Rate':    63.079051,
+    'Water Saturation':  19.213439,
+    'Pressure Gradient': 0.930257,
+    'Proppant Loading':  2567.065217,
+    'Lateral Length':    8153.086957,
+    'ISIP':              7010.490119,
+    'Porosity':          7.337549,
+    'Percentage of LG':  64.845455,
+}
+
+# ── Core transform: matches original_to_model_input() in notebook ─────────────
 def original_to_model_input(params):
     porosity = float(params['Porosity'])
     pct_lg   = float(params['Percentage of LG'])
@@ -66,6 +94,7 @@ def original_to_model_input(params):
 def predict_eur(params):
     return float(model.predict(original_to_model_input(params))[0])
 
+# ── Routes ────────────────────────────────────────────────────────────────────
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({'status': 'ok'})
@@ -83,9 +112,8 @@ def debug():
         eur = float(model.predict(df_in)[0])
         return jsonify({
             'test_predicted_eur': round(eur, 6),
-            'test_inputs_original': test_params,
-            'model_input_row': df_in.iloc[0].to_dict(),
             'model_features_order': MODEL_FEATURES,
+            'data_means': DATA_MEANS,
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -128,16 +156,23 @@ def predict_batch():
 
 @app.route('/optimize', methods=['POST'])
 def optimize():
+    """
+    Matches notebook run_optimizer() exactly:
+    SLSQP: x0 = DATA_MEANS, then 8 random starts (seed=42, per-feature uniform)
+    DE:    strategy='best1bin', maxiter=300, popsize=20, tol=1e-3, polish=True
+    """
     try:
         from scipy.optimize import minimize, differential_evolution
-        data   = request.get_json(force=True)
-        fixed  = data.get('fixed', {})
-        bounds = data.get('bounds', {})
-        method = data.get('method', 'SLSQP')
+
+        data     = request.get_json(force=True)
+        fixed    = data.get('fixed', {})
+        bounds   = data.get('bounds', {})
+        method   = data.get('method', 'SLSQP')
+
         opt_keys     = [k for k in bounds.keys() if k not in fixed]
-        lo           = [bounds[k][0] for k in opt_keys]
-        hi           = [bounds[k][1] for k in opt_keys]
-        scipy_bounds = list(zip(lo, hi))
+        lo           = np.array([bounds[k][0] for k in opt_keys], dtype=float)
+        hi           = np.array([bounds[k][1] for k in opt_keys], dtype=float)
+        scipy_bounds = list(zip(lo.tolist(), hi.tolist()))
 
         def objective(x):
             params = dict(fixed)
@@ -146,24 +181,47 @@ def optimize():
             return -predict_eur(params)
 
         if method == 'DE':
+            # ── Exact notebook DE ─────────────────────────────────────────
             res = differential_evolution(
-                objective, scipy_bounds,
-                seed=42, strategy='best1bin',
-                maxiter=200, popsize=15,
-                tol=1e-3, atol=1e-6,
-                mutation=(0.5, 1.0), recombination=0.7,
-                polish=True, workers=1,
+                objective,
+                scipy_bounds,
+                seed=42,
+                strategy='best1bin',
+                maxiter=300,
+                popsize=20,
+                tol=1e-3,
+                atol=1e-6,
+                mutation=(0.5, 1.0),
+                recombination=0.7,
+                polish=True,
+                workers=1,
             )
+
         else:
+            # ── Exact notebook SLSQP ──────────────────────────────────────
+            # x0 = DEFAULT_VALUES (exact data means) for optimized features
+            x0 = np.array([DATA_MEANS[k] for k in opt_keys], dtype=float)
+            x0 = np.clip(x0, lo, hi)
+
+            # 8 random starts — matches notebook: per-feature uniform, seed=42
             rng = np.random.default_rng(42)
-            starts = [np.array([(l + h) / 2 for l, h in scipy_bounds])]
-            for _ in range(12):
-                starts.append(rng.uniform(lo, hi))
+            starts = [x0]
+            for _ in range(8):
+                start = np.array([
+                    rng.uniform(low=bounds[k][0], high=bounds[k][1])
+                    for k in opt_keys
+                ], dtype=float)
+                starts.append(start)
+
             best_res, best_fun = None, np.inf
-            for x0 in starts:
+            for start in starts:
                 try:
-                    r = minimize(objective, x0, method='SLSQP', bounds=scipy_bounds,
-                                 options={'maxiter': 2000, 'ftol': 1e-9, 'disp': False})
+                    r = minimize(
+                        objective, start,
+                        method='SLSQP',
+                        bounds=scipy_bounds,
+                        options={'maxiter': 1500, 'ftol': 1e-9, 'disp': False}
+                    )
                     if r.fun is not None and not np.isnan(r.fun) and r.fun < best_fun:
                         best_fun = r.fun
                         best_res = r
@@ -176,6 +234,7 @@ def optimize():
 
         optimized = {k: float(res.x[i]) for i, k in enumerate(opt_keys)}
         best_eur  = predict_eur({**fixed, **optimized})
+
         return jsonify({
             'success':   bool(res.success),
             'method':    method,
