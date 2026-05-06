@@ -753,10 +753,19 @@ const BOUNDS = {
   'Porosity':         [5.5,   8.5],
   'Percentage of LG': [15.0,  95.0]
 };
+// DEFAULT_VALUES = df[col].mean() from EUR_dataset.csv (506 rows) — matches app.py exactly
 const MEDIANS = {
-  'Stage Spacing':141,'Well Spacing':800,'Thickness':165,'Injection Rate':61,
-  'Water Saturation':17.7,'Pressure Gradient':0.95,'Proppant Loading':2642,
-  'Lateral Length':8051,'ISIP':7643,'Porosity':7.5,'Percentage of LG':69.9
+  'Stage Spacing':     147.6403,
+  'Well Spacing':      820.1581,
+  'Thickness':         162.3656,
+  'Injection Rate':    63.0791,
+  'Water Saturation':  19.2134,
+  'Pressure Gradient': 0.9303,
+  'Proppant Loading':  2567.0652,
+  'Lateral Length':    8153.087,
+  'ISIP':              7010.4901,
+  'Porosity':          7.3375,
+  'Percentage of LG':  64.8455
 };
 const FIXED_F = ['Well Spacing','Thickness','Porosity','ISIP','Water Saturation','Pressure Gradient'];
 const OPT_F   = ['Stage Spacing','Lateral Length','Injection Rate','Percentage of LG','Proppant Loading'];
